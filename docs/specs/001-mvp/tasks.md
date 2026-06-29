@@ -2,13 +2,15 @@
 
 Use these tasks as the source of truth for incremental implementation.
 
+Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred.
+
 ## Phase 0: Project Foundation
 
-- [ ] Choose TypeScript/Next.js or another stack and scaffold the app.
-- [ ] Add environment variable loading and validation.
-- [ ] Add shared domain types for source documents, transactions, asset snapshots, review items, anomalies, and run state.
-- [ ] Add test framework and a small fixture directory for sanitized sample images or mocked extraction responses.
-- [ ] Add a local development README once the app exists.
+- [x] Choose TypeScript/Next.js or another stack and scaffold the app.
+- [x] Add environment variable loading and validation.
+- [x] Add shared domain types for source documents, transactions, asset snapshots, review items, anomalies, and run state.
+- [x] Add test framework and a small fixture directory for sanitized sample images or mocked extraction responses.
+- [x] Add a local development README once the app exists.
 
 Acceptance:
 
@@ -19,11 +21,11 @@ Acceptance:
 
 ## Phase 1: Google Drive Ingestion
 
-- [ ] Implement Google OAuth setup or service-account setup, depending on the chosen app model.
-- [ ] List image files in a configured Google Drive folder.
-- [ ] Track processed file IDs.
-- [ ] Download or stream unprocessed image content for extraction.
-- [ ] Write SourceDocuments rows to Google Sheets or a temporary local store.
+- [x] Implement Google OAuth setup or service-account setup, depending on the chosen app model.
+- [x] List image files in a configured Google Drive folder.
+- [x] Track processed file IDs.
+- [x] Download or stream unprocessed image content for extraction.
+- [x] Write SourceDocuments rows to Google Sheets or a temporary local store.
 
 Acceptance:
 
@@ -33,10 +35,10 @@ Acceptance:
 
 ## Phase 2: Google Sheets Foundation
 
-- [ ] Create or verify required tabs.
-- [ ] Implement typed read/write helpers.
-- [ ] Implement upsert behavior by stable ID.
-- [ ] Add tests for row mapping and idempotent writes.
+- [x] Create or verify required tabs.
+- [x] Implement typed read/write helpers.
+- [x] Implement upsert behavior by stable ID.
+- [x] Add tests for row mapping and idempotent writes.
 
 Acceptance:
 
@@ -45,12 +47,12 @@ Acceptance:
 
 ## Phase 3: Screenshot Extraction
 
-- [ ] Create a strict JSON extraction prompt for credit card screenshots.
-- [ ] Create a strict JSON extraction prompt for bank activity and balance screenshots.
-- [ ] Implement AI extraction client.
-- [ ] Add JSON repair or retry behavior.
-- [ ] Store raw evidence text with extracted records.
-- [ ] Add tests using mocked model responses.
+- [x] Create a strict JSON extraction prompt for credit card screenshots.
+- [x] Create a strict JSON extraction prompt for bank activity and balance screenshots.
+- [x] Implement AI extraction client.
+- [x] Add JSON repair or retry behavior.
+- [x] Store raw evidence text with extracted records.
+- [x] Add tests using mocked model responses.
 
 Acceptance:
 
@@ -59,11 +61,11 @@ Acceptance:
 
 ## Phase 4: Normalization and Validation
 
-- [ ] Normalize dates, amounts, merchants, account labels, and transaction types.
-- [ ] Mask account identifiers.
-- [ ] Detect missing fields and impossible values.
-- [ ] Detect duplicate-looking transactions.
-- [ ] Generate review queue items.
+- [x] Normalize dates, amounts, merchants, account labels, and transaction types.
+- [x] Mask account identifiers.
+- [x] Detect missing fields and impossible values.
+- [x] Detect duplicate-looking transactions.
+- [x] Generate review queue items.
 
 Acceptance:
 
@@ -72,11 +74,11 @@ Acceptance:
 
 ## Phase 5: Categorization
 
-- [ ] Add deterministic merchant rules.
-- [ ] Add AI classification fallback for unknown merchants.
-- [ ] Add category confidence and reasons.
-- [ ] Store future-applicable user corrections as merchant memory.
-- [ ] Route low-confidence categories to review.
+- [x] Add deterministic merchant rules.
+- [x] Add AI classification fallback for unknown merchants.
+- [x] Add category confidence and reasons.
+- [x] Store future-applicable user corrections as merchant memory.
+- [x] Route low-confidence categories to review.
 
 Acceptance:
 
@@ -86,10 +88,10 @@ Acceptance:
 
 ## Phase 6: Summary and Trend Generation
 
-- [ ] Generate MonthlySummary rows.
-- [ ] Generate QuarterlySummary rows.
-- [ ] Generate AssetTrends rows.
-- [ ] Add maintainability flags when spending rises and balances fall.
+- [x] Generate MonthlySummary rows.
+- [x] Generate QuarterlySummary rows.
+- [x] Generate AssetTrends rows.
+- [x] Add maintainability flags when spending rises and balances fall.
 
 Acceptance:
 
@@ -99,11 +101,11 @@ Acceptance:
 
 ## Phase 7: Anomaly Detection
 
-- [ ] Detect duplicate charges.
-- [ ] Detect spending spikes by category.
-- [ ] Detect visible balance drops.
-- [ ] Detect missing or incomplete months.
-- [ ] Write Anomalies rows with suggested actions.
+- [x] Detect duplicate charges.
+- [x] Detect spending spikes by category.
+- [x] Detect visible balance drops.
+- [x] Detect missing or incomplete months.
+- [x] Write Anomalies rows with suggested actions.
 
 Acceptance:
 
@@ -112,12 +114,12 @@ Acceptance:
 
 ## Phase 8: Single-User Web App
 
-- [ ] Add single-user access restriction by configured email.
-- [ ] Read summary, asset, review, and anomaly data from Google Sheets.
-- [ ] Build monthly category chart.
-- [ ] Build quarterly trend chart.
-- [ ] Build asset trend chart.
-- [ ] Build review queue and anomaly panels.
+- [x] Add single-user access restriction by configured email.
+- [x] Read summary, asset, review, and anomaly data from Google Sheets.
+- [x] Build monthly category chart.
+- [x] Build quarterly trend chart.
+- [x] Build asset trend chart.
+- [x] Build review queue and anomaly panels.
 
 Acceptance:
 
@@ -127,11 +129,11 @@ Acceptance:
 
 ## Phase 9: Capstone Demo Polish
 
-- [ ] Add one-click or guided workflow run.
-- [ ] Add demo dataset instructions.
-- [ ] Add clear empty, loading, and error states.
-- [ ] Add screenshots or short demo notes.
-- [ ] Update README with final setup and run instructions.
+- [x] Add one-click or guided workflow run.
+- [x] Add demo dataset instructions.
+- [x] Add clear empty, loading, and error states.
+- [x] Add screenshots or short demo notes.
+- [x] Update README with final setup and run instructions.
 
 Acceptance:
 

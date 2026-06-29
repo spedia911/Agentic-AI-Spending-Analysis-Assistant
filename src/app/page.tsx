@@ -1,0 +1,218 @@
+import { getEnv } from '../lib/env';
+import { canViewDashboard, loadDashboardData } from '../lib/dashboard';
+import styles from './page.module.css';
+
+function currency(value: number | null | undefined) {
+  if (value === null || value === undefined) return '-';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+}
+
+function chartWidth(value: number, max: number) {
+  if (max <= 0) return '0%';
+  return Math.max(6, Math.round((Math.abs(value) / max) * 100)) + '%';
+}
+
+export default async function Home({ searchParams }: { searchParams?: Promise<{ email?: string }> }) {
+  const env = getEnv();
+  const params = await searchParams;
+  const email = params?.email;
+
+  if (!canViewDashboard(email, env.SINGLE_USER_EMAIL)) {
+    return (
+      <main className={styles.pageShell}>
+        <section className={styles.accessPanel}>
+          <h1>Spending Analysis</h1>
+          <p>Enter the configured user email as a query parameter to view the dashboard.</p>
+          <code>?email={env.SINGLE_USER_EMAIL}</code>
+        </section>
+      </main>
+    );
+  }
+
+  let data;
+  try {
+    data = await loadDashboardData();
+  } catch (error) {
+    return (
+      <main className={styles.pageShell}>
+        <section className={styles.accessPanel}>
+          <p className={styles.eyebrow}>Dashboard unavailable</p>
+          <h1>Spending Analysis</h1>
+          <p>Unable to read the configured Google Sheet. Check the environment settings and Google access, then refresh the page.</p>
+          <code>{error instanceof Error ? error.message : 'Unknown dashboard error'}</code>
+        </section>
+      </main>
+    );
+  }
+
+  const latestMonths = [...data.monthlySummaries].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 8);
+  const latestQuarters = [...data.quarterlySummaries].sort((a, b) => b.quarter.localeCompare(a.quarter)).slice(0, 8);
+  const latestAssets = [...data.assetTrends].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 8);
+  const openAnomalies = data.anomalies.slice(0, 6);
+  const pendingReviews = data.reviewItems.slice(0, 6);
+
+  const currentMonthSpend = latestMonths.reduce((sum, row) => (row.month === latestMonths[0]?.month ? sum + row.total_amount : sum), 0);
+  const concernCount = data.assetTrends.filter((row) => row.maintainability_flag === 'concern').length;
+  const monthlyChartRows = Array.from(
+    data.monthlySummaries.reduce((map, row) => map.set(row.month, (map.get(row.month) ?? 0) + row.total_amount), new Map<string, number>())
+  )
+    .map(([label, total]) => ({ label, total: Number(total.toFixed(2)) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .slice(-6);
+  const quarterlyChartRows = Array.from(
+    data.quarterlySummaries.reduce((map, row) => map.set(row.quarter, (map.get(row.quarter) ?? 0) + row.total_amount), new Map<string, number>())
+  )
+    .map(([label, total]) => ({ label, total: Number(total.toFixed(2)) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .slice(-6);
+  const assetChartRows = [...data.assetTrends]
+    .sort((a, b) => (a.account_label + a.month).localeCompare(b.account_label + b.month))
+    .slice(-6)
+    .map((row) => ({ label: row.month + ' ' + row.account_label, total: row.ending_balance, change: row.monthly_change, flag: row.maintainability_flag }));
+  const maxMonthly = Math.max(0, ...monthlyChartRows.map((row) => row.total));
+  const maxQuarterly = Math.max(0, ...quarterlyChartRows.map((row) => row.total));
+  const maxAsset = Math.max(0, ...assetChartRows.map((row) => row.total));
+
+  return (
+    <main className={styles.pageShell}>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.eyebrow}>Single-user finance assistant</p>
+          <h1>Spending Analysis</h1>
+        </div>
+        <div className={styles.sheetId}>Sheet {data.sheetId}</div>
+      </header>
+
+      <section className={styles.metrics}>
+        <div className={styles.metric}>
+          <span>Current Month Spend</span>
+          <strong>{currency(currentMonthSpend)}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span>Pending Reviews</span>
+          <strong>{data.reviewItems.length}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span>Open Anomalies</span>
+          <strong>{data.anomalies.length}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span>Asset Concerns</span>
+          <strong>{concernCount}</strong>
+        </div>
+      </section>
+
+      <section className={styles.gridTwo}>
+        <div className={styles.panel}>
+          <h2>Monthly Spending</h2>
+          <div className={styles.chartStack} aria-label="Monthly spending chart">
+            {monthlyChartRows.length === 0 ? <p>No monthly chart data yet.</p> : monthlyChartRows.map((row) => (
+              <div className={styles.chartRow} key={row.label}>
+                <span>{row.label}</span>
+                <div className={styles.barTrack}><div className={styles.barFill} style={{ width: chartWidth(row.total, maxMonthly) }} /></div>
+                <strong>{currency(row.total)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.panel}>
+          <h2>Quarterly Spending</h2>
+          <div className={styles.chartStack} aria-label="Quarterly spending chart">
+            {quarterlyChartRows.length === 0 ? <p>No quarterly chart data yet.</p> : quarterlyChartRows.map((row) => (
+              <div className={styles.chartRow} key={row.label}>
+                <span>{row.label}</span>
+                <div className={styles.barTrack}><div className={styles.barFillAlt} style={{ width: chartWidth(row.total, maxQuarterly) }} /></div>
+                <strong>{currency(row.total)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.panel}>
+        <h2>Asset Trend Chart</h2>
+        <div className={styles.chartStack} aria-label="Asset balance chart">
+          {assetChartRows.length === 0 ? <p>No asset chart data yet.</p> : assetChartRows.map((row) => (
+            <div className={styles.chartRow} key={row.label}>
+              <span>{row.label}</span>
+              <div className={styles.barTrack}><div className={row.flag === 'concern' ? styles.barFillConcern : styles.barFillAsset} style={{ width: chartWidth(row.total, maxAsset) }} /></div>
+              <strong>{currency(row.total)} ({currency(row.change)})</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.gridTwo}>
+        <div className={styles.panel}>
+          <h2>Monthly Categories</h2>
+          <table>
+            <thead><tr><th>Month</th><th>Category</th><th>Total</th><th>Delta</th></tr></thead>
+            <tbody>
+              {latestMonths.length === 0 ? <tr><td colSpan={4}>No monthly summaries yet.</td></tr> : latestMonths.map((row) => (
+                <tr key={row.month + row.category}>
+                  <td>{row.month}</td><td>{row.category}</td><td>{currency(row.total_amount)}</td><td>{currency(row.month_over_month_delta)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className={styles.panel}>
+          <h2>Quarterly Trends</h2>
+          <table>
+            <thead><tr><th>Quarter</th><th>Category</th><th>Total</th><th>Delta</th></tr></thead>
+            <tbody>
+              {latestQuarters.length === 0 ? <tr><td colSpan={4}>No quarterly summaries yet.</td></tr> : latestQuarters.map((row) => (
+                <tr key={row.quarter + row.category}>
+                  <td>{row.quarter}</td><td>{row.category}</td><td>{currency(row.total_amount)}</td><td>{currency(row.quarter_over_quarter_delta)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={styles.panel}>
+        <h2>Asset Trends</h2>
+        <table>
+          <thead><tr><th>Month</th><th>Account</th><th>Ending</th><th>Change</th><th>Spending</th><th>Flag</th></tr></thead>
+          <tbody>
+            {latestAssets.length === 0 ? <tr><td colSpan={6}>No asset snapshots yet.</td></tr> : latestAssets.map((row) => (
+              <tr key={row.month + row.account_label}>
+                <td>{row.month}</td><td>{row.account_label}</td><td>{currency(row.ending_balance)}</td><td>{currency(row.monthly_change)}</td><td>{currency(row.related_spending_total)}</td><td>{row.maintainability_flag}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className={styles.gridTwo}>
+        <div className={styles.panel}>
+          <h2>Review Queue</h2>
+          <div className={styles.stack}>
+            {pendingReviews.length === 0 ? <p>No pending review items.</p> : pendingReviews.map((item) => (
+              <article className={styles.item} key={item.review_item_id}>
+                <strong>{item.severity} - {item.issue_type}</strong>
+                <p>{item.question}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.panel}>
+          <h2>Anomalies</h2>
+          <div className={styles.stack}>
+            {openAnomalies.length === 0 ? <p>No open anomalies.</p> : openAnomalies.map((item) => (
+              <article className={styles.item} key={item.anomaly_id}>
+                <strong>{item.severity} - {item.anomaly_type}</strong>
+                <p>{item.summary}</p>
+                <small>{item.suggested_action}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
