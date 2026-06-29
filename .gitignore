@@ -1,0 +1,39 @@
+# System
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+credentials.json
+token.json
+service-account*.json
+client_secret*.json
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Local data and generated artifacts
+data/raw/
+data/private/
+data/exports/
+artifacts/
+screenshots/
+*.log
+
+# IDE
+.idea/
+.vscode/
+
