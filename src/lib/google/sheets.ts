@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google, type sheets_v4 } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
 import { getGoogleAuthClient } from './auth';
@@ -292,7 +292,7 @@ export async function initializeSpreadsheet(sheetId: string): Promise<string> {
   const sheets = google.sheets({ version: 'v4', auth });
 
   let targetSheetId = sheetId;
-  let spreadsheetMetadata: any = null;
+  let spreadsheetMetadata: sheets_v4.Schema$Spreadsheet | null = null;
 
   if (targetSheetId && targetSheetId !== 'mock-google-sheet-id-abc') {
     try {
@@ -323,7 +323,7 @@ export async function initializeSpreadsheet(sheetId: string): Promise<string> {
   }
 
   const existingTabs = new Set(
-    spreadsheetMetadata.sheets?.map((sheet: any) => sheet.properties?.title).filter(Boolean) || []
+    spreadsheetMetadata.sheets?.map((sheet) => sheet.properties?.title).filter(Boolean) || []
   );
 
   const addSheetRequests = (Object.keys(SHEET_SCHEMAS) as TabName[])
@@ -420,7 +420,7 @@ export async function replaceTabRows<Tab extends TabName>(
   });
 }
 
-export async function replaceRows<T extends Record<string, any>>(
+export async function replaceRows<T extends object>(
   sheetId: string,
   tabName: TabName,
   rows: T[]
@@ -476,7 +476,7 @@ export async function upsertTabRows<Tab extends TabName>(
   console.log('[Sheets] Upserted ' + newOrUpdatedRows.length + ' rows in ' + tabName + '.');
 }
 
-export async function upsertRows<T extends Record<string, any>>(
+export async function upsertRows<T extends object>(
   sheetId: string,
   tabName: TabName,
   keyColumn: keyof T,

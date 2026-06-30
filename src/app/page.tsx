@@ -2,6 +2,8 @@ import { getEnv } from '../lib/env';
 import { canViewDashboard, loadDashboardData } from '../lib/dashboard';
 import styles from './page.module.css';
 
+export const dynamic = 'force-dynamic';
+
 function currency(value: number | null | undefined) {
   if (value === null || value === undefined) return '-';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -146,7 +148,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
       <section className={styles.gridTwo}>
         <div className={styles.panel}>
           <h2>Monthly Categories</h2>
-          <table>
+          <table className={styles.dataTable}>
             <thead><tr><th>Month</th><th>Category</th><th>Total</th><th>Delta</th></tr></thead>
             <tbody>
               {latestMonths.length === 0 ? <tr><td colSpan={4}>No monthly summaries yet.</td></tr> : latestMonths.map((row) => (
@@ -160,7 +162,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
 
         <div className={styles.panel}>
           <h2>Quarterly Trends</h2>
-          <table>
+          <table className={styles.dataTable}>
             <thead><tr><th>Quarter</th><th>Category</th><th>Total</th><th>Delta</th></tr></thead>
             <tbody>
               {latestQuarters.length === 0 ? <tr><td colSpan={4}>No quarterly summaries yet.</td></tr> : latestQuarters.map((row) => (
@@ -175,7 +177,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
 
       <section className={styles.panel}>
         <h2>Asset Trends</h2>
-        <table>
+        <table className={styles.dataTable}>
           <thead><tr><th>Month</th><th>Account</th><th>Ending</th><th>Change</th><th>Spending</th><th>Flag</th></tr></thead>
           <tbody>
             {latestAssets.length === 0 ? <tr><td colSpan={6}>No asset snapshots yet.</td></tr> : latestAssets.map((row) => (

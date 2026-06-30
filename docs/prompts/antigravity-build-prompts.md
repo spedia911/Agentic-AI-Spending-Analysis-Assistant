@@ -2,6 +2,8 @@
 
 Use these prompts one at a time. After each prompt, verify the acceptance criteria in `docs/specs/001-mvp/tasks.md` before moving on.
 
+Status: Prompts 1 through 10 correspond to the implemented Drive-first MVP. Prompt 11 starts the next implementation phase focused on making the dashboard feel like an assistant instead of a read-only report.
+
 ## Prompt 1: Scaffold the App
 
 Build the foundation for this project using the existing specs. Read `AGENTS.md`, `docs/PRD.md`, and all files under `docs/specs/001-mvp/`. Choose a TypeScript web app stack that can support Google Drive, Google Sheets, AI extraction, and a single-user dashboard. Scaffold the app, add environment validation based on `.env.example`, add shared domain types matching `docs/specs/001-mvp/data-model.md`, and add a minimal test setup. Do not implement Google APIs yet.
@@ -42,3 +44,6 @@ Build the single-user dashboard that reads from Google Sheets and displays month
 
 Create a polished demo flow. Add setup instructions, empty states, error states, and a clear run path. Ensure a reviewer can understand and run the project with sample screenshots or mocked extraction data.
 
+## Prompt 11: Build Assistant-Grade UX
+
+Upgrade the read-only dashboard into an action-oriented assistant cockpit. Read the "Next Implementation Plan: Assistant-Grade UX" section in `docs/specs/001-mvp/tasks.md` first. Add visible workflow actions, setup health checks, review correction cards with suggested options, transaction type corrections, anomaly resolution controls, source evidence display, and clearer spending versus income metrics. Keep the MVP single-user and Drive-first. Add tests for correction workflows, spending/income summary behavior, and anomaly status updates.

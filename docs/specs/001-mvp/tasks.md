@@ -2,7 +2,7 @@
 
 Use these tasks as the source of truth for incremental implementation.
 
-Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred.
+Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred. Phases 11 through 16 now define the next implementation plan for assistant-grade dashboard UX, inline corrections, income/spending separation, anomaly resolution, evidence review, and first-time setup guidance.
 
 ## Phase 0: Project Foundation
 
@@ -152,3 +152,92 @@ Acceptance:
 - Photos ingestion is optional.
 - Drive ingestion remains the stable default.
 
+## Next Implementation Plan: Assistant-Grade UX
+
+The Drive-first MVP proves the backend workflow, but the next implementation should make the web app feel like an assistant rather than a read-only report. These phases come from live dashboard review and first-time setup friction observed during local testing.
+
+## Phase 11: Dashboard Action Center
+
+- [ ] Add visible dashboard actions for running the full workflow, refreshing summaries, seeding demo data, and force reprocessing.
+- [ ] Show clear run status, latest run timestamp, files seen, files processed, errors, and next recommended action.
+- [ ] Add guardrails for force reprocess so the user understands it reruns already-known Drive files.
+- [ ] Show setup health checks for Drive folder access, Sheet access, AI key presence, and configured user email.
+
+Acceptance:
+
+- A non-technical reviewer can run the demo from the web page without curl.
+- Failed workflow runs show a friendly, masked error and a concrete next step.
+- Successful runs link the user to the dashboard sections that changed.
+
+## Phase 12: Review Correction Cockpit
+
+- [ ] Replace static review cards with actionable review cards.
+- [ ] Show target record details: merchant, date, amount, transaction type, category, confidence, evidence text, and source document ID.
+- [ ] Render suggested options as buttons or dropdowns for category, date, amount, merchant, and transaction type corrections.
+- [ ] Add a custom correction input for cases where the suggestions are wrong.
+- [ ] Add an "apply to future similar merchants" control for category corrections.
+- [ ] Add filters for missing date, missing amount, duplicate risk, unclear category, low confidence, and asset snapshot review.
+- [ ] Rank reviews by severity, dollar amount, and downstream summary impact.
+
+Acceptance:
+
+- A user can resolve common pending reviews without leaving the dashboard.
+- Applying a correction updates the Google Sheet, refreshes summaries, and removes the item from the pending queue.
+- The page explains what changed after each correction.
+
+## Phase 13: Spending, Earnings, and Cash Flow Separation
+
+- [ ] Add explicit summary outputs for spending, income, refunds, transfers, payments, and fees.
+- [ ] Update summary generation so income is not shown as a zero-dollar spending category.
+- [ ] Add dashboard metrics for monthly spend, monthly income, net cash flow, transfers/payments, and unresolved amount.
+- [ ] Add transaction type correction support for expense, income, transfer, payment, fee, refund, and unknown.
+- [ ] Add tests for sign handling across credit card charges, refunds, payments, bank deposits, bank withdrawals, and transfers.
+
+Acceptance:
+
+- The dashboard clearly distinguishes money spent from money earned.
+- Bank deposits and credit card payments do not inflate spending totals.
+- The user can correct a transaction that was classified with the wrong money direction.
+
+## Phase 14: Anomaly Resolution Workflow
+
+- [ ] Show related transaction or asset records inside each anomaly card.
+- [ ] For duplicate charge anomalies, display the two records side by side with date, merchant, amount, source, and evidence.
+- [ ] Add actions for "keep both", "mark duplicate", "ignore", and "needs more review".
+- [ ] Add an anomaly status update endpoint or extend the correction workflow to resolve anomalies.
+- [ ] Preserve an audit trail for anomaly decisions in Sheets.
+
+Acceptance:
+
+- An anomaly tells the user exactly what records caused it.
+- The user can resolve or ignore an anomaly from the dashboard.
+- Duplicate decisions update summaries or status consistently.
+
+## Phase 15: Evidence, Source, and File Selection UX
+
+- [ ] Show source document status counts: pending, processed, skipped, and error.
+- [ ] Show which Drive files were processed in the latest run.
+- [ ] Add guidance that file selection is folder-based: put only desired screenshots in the configured Drive folder.
+- [ ] Add a page section for unprocessed, errored, and unsupported files.
+- [ ] Surface evidence text for extracted rows and review items.
+- [ ] Consider a lightweight file selection layer before processing if the Drive folder contains many screenshots.
+
+Acceptance:
+
+- The user can understand why a screenshot was or was not analyzed.
+- The user can audit a row against its source evidence without opening the raw Sheet first.
+- The dashboard explains how to refresh after adding new screenshots.
+
+## Phase 16: First-Time Setup Experience
+
+- [ ] Add an in-app setup checklist for `.env`, Drive folder, Google Sheet, service account sharing, AI key, and selected model.
+- [ ] Show helpful messages for missing Node/npm, missing `.env`, missing API keys, wrong email query parameter, or missing Google sharing.
+- [ ] Add a "test connections" endpoint that validates Drive, Sheets, and AI credentials without processing screenshots.
+- [ ] Add a "try sample data" button on empty dashboards.
+- [ ] Keep the README aligned with this guided setup flow.
+
+Acceptance:
+
+- A first-time user can get from clone to demo without reading implementation docs.
+- Setup failures explain the exact missing piece and where to get it.
+- Empty Drive folders and empty Sheets are treated as normal first-run states, not confusing errors.

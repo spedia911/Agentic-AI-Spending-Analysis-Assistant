@@ -19,7 +19,7 @@ export function getGoogleAuthClient() {
       credentials = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_KEY);
     } catch {
       // Otherwise, assume it is a file path
-      const filePath = path.resolve(process.cwd(), env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      const filePath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), env.GOOGLE_SERVICE_ACCOUNT_KEY);
       if (fs.existsSync(filePath)) {
         try {
           const fileContent = fs.readFileSync(filePath, 'utf-8');
@@ -33,7 +33,7 @@ export function getGoogleAuthClient() {
 
   // 2. If not loaded, fallback to checking for a local service-account.json in the project root
   if (!credentials) {
-    const defaultSA = path.join(process.cwd(), 'service-account.json');
+    const defaultSA = path.join(/*turbopackIgnore: true*/ process.cwd(), 'service-account.json');
     if (fs.existsSync(defaultSA)) {
       try {
         const fileContent = fs.readFileSync(defaultSA, 'utf-8');

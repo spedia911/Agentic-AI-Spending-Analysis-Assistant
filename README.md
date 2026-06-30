@@ -1,142 +1,370 @@
 # Agentic AI Spending Analysis Assistant
 
-An agentic personal finance assistant for the Kaggle Vibe Coding Capstone Project.
+This is a Drive-first personal finance assistant for the Kaggle Vibe Coding Capstone Project.
 
-The app ingests screenshots of credit card spending and bank account activity from a dedicated Google Drive folder, extracts and validates transaction data, categorizes spending, writes monthly summaries to Google Sheets, and supports an individual web app for spending and asset trend visualization.
+It reads financial screenshots from a Google Drive folder, extracts transactions and balances with an AI vision model, writes structured rows to Google Sheets, and shows a single-user dashboard for monthly spending, asset context, review items, and anomalies.
 
-## Current Status
+## What Works Today
 
-Phase 0 is implemented for MVP: the app is scaffolded with Next.js and TypeScript, environment validation exists, shared domain types are present, and focused tests are in place.
+- Google Drive folder ingestion for screenshots.
+- Google Sheets as the durable output store.
+- Gemini or OpenAI vision extraction.
+- Transaction normalization, validation, categorization, and review queue generation.
+- Monthly and quarterly summaries.
+- Asset trend rows from visible balance screenshots.
+- Duplicate, spending spike, balance drop, and missing month anomalies.
+- A single-user dashboard gated by `SINGLE_USER_EMAIL`.
+- A sanitized demo seed endpoint so you can test the dashboard without real screenshots.
 
-Phase 1 is implemented for MVP: the app can initialize Google Sheets tabs, list files in a configured Google Drive folder, skip unsupported files, avoid already-known screenshots unless force reprocessing is requested, download supported image files to a private local cache, and upsert SourceDocuments rows.
+Current limitation: the dashboard is mostly read-only. It shows review items and anomalies, but the next implementation should add a friendly correction workflow directly in the page. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the next implementation plan.
 
-Phase 2 is implemented for MVP: required Sheets tabs are verified or created, headers are rewritten when they drift, tab rows have typed read helpers, and stable-ID upserts merge existing rows instead of appending duplicates.
+## What You Need Before Running
 
-Phase 3 is implemented for MVP: extraction prompts, strict model-output schemas, JSON parsing/repair, OpenAI/Gemini vision adapters, and a mockable vision-model adapter are in place for credit card, bank activity, and mixed screenshots.
+You need four things:
 
-Phase 4 is implemented for MVP: extraction candidates can be normalized into Transactions, AssetSnapshots, and ReviewQueue items with stable IDs, account masking, basic amount/date parsing, duplicate-looking transaction detection, impossible-value checks, and review routing for missing, anomalous, duplicate-risk, or low-confidence fields. Pending SourceDocuments can now be processed into those tabs through the processing orchestrator.
+1. A Google Drive folder for screenshots.
+2. A Google Sheet for output.
+3. Google API credentials that can read the folder and edit the sheet.
+4. An AI API key, usually Gemini for easiest setup.
 
-Phase 5 is implemented for MVP: deterministic merchant categorization, category confidence scores, ambiguous merchant review routing, transaction-type categories, future-applicable correction memory, and review correction application are wired into processing.
+The Drive folder can be empty at first. The Google Sheet can also be blank. The app will create the needed sheet tabs.
 
-Phase 6 is implemented for MVP: monthly summaries, quarterly summaries, and asset trend rows can be generated from the Sheets transaction and asset snapshot tabs.
+## Step 1: Create the Google Drive Folder
 
-Phase 7 is implemented for MVP: duplicate charges, spending spikes, visible balance drops, and missing month anomalies are generated into the `Anomalies` tab.
+1. Open Google Drive.
+2. Create a folder, for example `Financial Screenshots MVP`.
+3. Open the folder.
+4. Copy the folder ID from the URL.
 
-Phase 8 is implemented for MVP: the homepage is a single-user dashboard gated by the configured email query parameter and reads summaries, asset trends, review items, and anomalies from Google Sheets.
+Example:
 
-Phase 9 is implemented for MVP: a guided workflow endpoint can run ingestion, processing, and summary refresh in sequence, a sanitized demo seed endpoint can populate the dashboard for review, and the dashboard has clear empty, loading, and error states.
+```text
+https://drive.google.com/drive/folders/1AbCDEFghiJKLmnoPQRstu
+```
 
-## MVP Focus
+Use only this part:
 
-The first build should support:
+```env
+GOOGLE_DRIVE_FOLDER_ID=1AbCDEFghiJKLmnoPQRstu
+```
 
-- Google Drive folder ingestion for financial screenshots.
-- Image OCR and multimodal transaction extraction.
-- Agentic validation, categorization, and correction suggestions.
-- Google Sheets output as the source of truth.
-- Monthly and quarterly category trends.
-- Asset trend tracking from bank activity snapshots.
-- A single-user web app that reads from the generated spreadsheet.
+To choose which screenshots the app analyzes, put only those screenshots in this folder. For testing, use a small folder with 1 to 3 screenshots.
 
-Google Photos ingestion is intentionally deferred until after the Drive-based workflow is working, because automatic full-library scanning is constrained by current Google Photos API behavior. See [docs/references/google-api-constraints.md](docs/references/google-api-constraints.md).
+## Step 2: Create the Google Sheet
+
+1. Create a blank Google Sheet.
+2. Copy the sheet ID from the URL.
+
+Example:
+
+```text
+https://docs.google.com/spreadsheets/d/1SheetABCdefGHIjkl/edit
+```
+
+Use only this part:
+
+```env
+GOOGLE_SHEET_ID=1SheetABCdefGHIjkl
+```
+
+The sheet can be completely empty. The app will create tabs such as `Transactions`, `ReviewQueue`, `MonthlySummary`, `AssetTrends`, `Anomalies`, and `Runs`.
+
+## Step 3: Create Google API Credentials
+
+The app needs Google credentials to read Drive and write Sheets.
+
+Recommended setup for this MVP:
+
+1. Open Google Cloud Console.
+2. Create or select a project.
+3. Enable these APIs:
+   - Google Drive API
+   - Google Sheets API
+4. Create a service account.
+5. Create a JSON key for the service account.
+6. Save the JSON file as `service-account.json` in this project folder.
+
+`service-account.json` is already ignored by git. Do not commit it.
+
+Open the JSON file and find the service account email. It looks like:
+
+```text
+something@your-project.iam.gserviceaccount.com
+```
+
+Share both of these with that email:
+
+- The Google Drive screenshot folder.
+- The Google Sheet.
+
+Give the service account edit access to the sheet.
+
+In `.env`, use:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_KEY=service-account.json
+```
+
+## Step 4: Create an AI Key and Pick a Model
+
+For Gemini:
+
+1. Open Google AI Studio.
+2. Create an API key.
+3. Put it in `.env`.
+
+Recommended default:
+
+```env
+AI_PROVIDER=gemini
+AI_MODEL=gemini-2.5-flash
+AI_API_KEY=your_gemini_api_key
+```
+
+To see which Gemini models your key can use:
+
+```bash
+curl "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_GEMINI_API_KEY"
+```
+
+If a returned model name is `models/gemini-2.5-flash`, use this in `.env`:
+
+```env
+AI_MODEL=gemini-2.5-flash
+```
+
+Do not include the `models/` prefix.
+
+## Step 5: Create the `.env` File
+
+From the project folder:
+
+```bash
+cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
+cp .env.example .env
+```
+
+Open it with TextEdit:
+
+```bash
+open -a TextEdit .env
+```
+
+If that does not work:
+
+```bash
+nano .env
+```
+
+In `nano`, save with `Control + O`, press `Enter`, then exit with `Control + X`.
+
+Your `.env` should look like this, with your real values:
+
+```env
+GOOGLE_DRIVE_FOLDER_ID=your_drive_folder_id
+GOOGLE_SHEET_ID=your_google_sheet_id
+GOOGLE_SERVICE_ACCOUNT_KEY=service-account.json
+
+AI_PROVIDER=gemini
+AI_MODEL=gemini-2.5-flash
+AI_API_KEY=your_ai_key
+
+SINGLE_USER_EMAIL=your_email@example.com
+LOW_CONFIDENCE_THRESHOLD=0.75
+TIMEZONE=America/Los_Angeles
+SOURCE_IMAGE_RETENTION_DAYS=30
+```
+
+Restart the app after changing `.env`.
+
+## Step 6: Start the App
+
+If your computer has Node and npm:
+
+```bash
+cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
+npm install
+npm run dev
+```
+
+Keep that terminal open.
+
+If `npm` or `node` is not found, install Node:
+
+```bash
+brew install node
+```
+
+Or use the bundled Codex Node runtime:
+
+```bash
+cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
+export PATH="/Users/namkyounglee/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH"
+./node_modules/.bin/next dev
+```
+
+Then open the dashboard with your real email:
+
+```text
+http://localhost:3000?email=your_email@example.com
+```
+
+Do not use the placeholder `YOUR_CONFIGURED_EMAIL`.
+
+## Step 7: Test Without Real Screenshots
+
+Use this first. It checks that the app can write to your Google Sheet and display dashboard data.
+
+Open a second terminal window or tab. Keep the first terminal running the app server.
+
+```bash
+cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
+curl -X POST http://localhost:3000/api/demo/seed
+```
+
+Refresh the browser.
+
+Expected result:
+
+- The Google Sheet has populated tabs.
+- The dashboard shows spending, asset trends, reviews, and anomalies.
+
+## Step 8: Test With Real Screenshots
+
+1. Put 1 to 3 screenshots in the configured Google Drive folder.
+2. Use credit card transactions, bank activity, or balance screenshots.
+3. Run the workflow from a second terminal:
+
+```bash
+curl -X POST http://localhost:3000/api/workflow/run \
+  -H "Content-Type: application/json" \
+  -d "{}"
+```
+
+Refresh the dashboard and check the Google Sheet tabs.
+
+The app skips files it already processed. If you add new screenshots, run the workflow again.
+
+To reprocess files already seen in the folder:
+
+```bash
+curl -X POST http://localhost:3000/api/workflow/run \
+  -H "Content-Type: application/json" \
+  -d '{"forceReprocess":true}'
+```
+
+Use force reprocess carefully because it reruns known files in that Drive folder.
+
+## Current User Experience Notes
+
+The MVP proves the backend workflow, but the dashboard still needs a friendlier correction experience.
+
+Known gaps:
+
+- The dashboard shows review items but does not yet let you correct them inline.
+- Income and spending are not clearly separated in the dashboard.
+- Duplicate anomalies do not show the related transactions side by side.
+- The page does not yet have buttons to run workflow, refresh summaries, seed demo data, or force reprocess.
+- Evidence text and source references exist in Sheets but are not visible enough in the dashboard.
+
+These are now captured in the next implementation plan in [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md).
+
+## Useful API Endpoints
+
+Seed sanitized demo data:
+
+```bash
+curl -X POST http://localhost:3000/api/demo/seed
+```
+
+Run the full Drive workflow:
+
+```bash
+curl -X POST http://localhost:3000/api/workflow/run \
+  -H "Content-Type: application/json" \
+  -d "{}"
+```
+
+Force reprocess known Drive files:
+
+```bash
+curl -X POST http://localhost:3000/api/workflow/run \
+  -H "Content-Type: application/json" \
+  -d '{"forceReprocess":true}'
+```
+
+Refresh summaries only:
+
+```bash
+curl -X POST http://localhost:3000/api/summaries/refresh
+```
+
+Apply a correction through the API:
+
+```bash
+curl -X POST http://localhost:3000/api/corrections/apply \
+  -H "Content-Type: application/json" \
+  -d '{"reviewItemId":"review-id","fieldName":"category","newValue":"groceries","applyFuture":true}'
+```
+
+## Troubleshooting
+
+If the browser says `Invalid environment variables`, check that `.env` exists and includes:
+
+```env
+GOOGLE_DRIVE_FOLDER_ID=
+GOOGLE_SHEET_ID=
+GOOGLE_SERVICE_ACCOUNT_KEY=
+AI_API_KEY=
+SINGLE_USER_EMAIL=
+```
+
+If the dashboard says it cannot read the sheet:
+
+- Make sure the sheet ID is correct.
+- Share the sheet with the service account email.
+- Make sure Google Sheets API is enabled.
+
+If Drive finds no files:
+
+- Make sure the folder ID is correct.
+- Share the folder with the service account email.
+- Put supported image files in the folder: PNG, JPG/JPEG, WEBP, HEIC, or HEIF.
+
+If `npm install` does not work:
+
+- Check `node -v` and `npm -v`.
+- Install Node with `brew install node`, or use the bundled runtime command above.
+
+If `.env` changes do not apply:
+
+- Stop the dev server.
+- Start it again.
+
+## Verification
+
+Run these before submitting:
+
+```bash
+npm test
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+If you are using the bundled Node runtime, prefix the commands with:
+
+```bash
+export PATH="/Users/namkyounglee/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH"
+```
 
 ## Repo Map
 
-- [AGENTS.md](AGENTS.md): instructions for Antigravity and other coding agents.
+- [AGENTS.md](AGENTS.md): agent instructions for this project.
 - [docs/PRD.md](docs/PRD.md): product requirement document.
 - [docs/specs/001-mvp/requirements.md](docs/specs/001-mvp/requirements.md): MVP user stories and acceptance criteria.
 - [docs/specs/001-mvp/design.md](docs/specs/001-mvp/design.md): system design and agent architecture.
-- [docs/specs/001-mvp/data-model.md](docs/specs/001-mvp/data-model.md): Sheets tabs and structured entities.
-- [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md): incremental implementation plan.
-- [docs/prompts/antigravity-build-prompts.md](docs/prompts/antigravity-build-prompts.md): ready-to-use build prompts.
-- [docs/references/google-api-constraints.md](docs/references/google-api-constraints.md): Google Drive, Sheets, and Photos notes.
-- [.env.example](.env.example): environment variables for future implementation.
-
-## Recommended Build Order
-
-1. Implement Google Drive folder ingestion.
-2. Extract structured transactions from sample screenshots.
-3. Write normalized data to Google Sheets.
-4. Add categorization confidence and review queue.
-5. Generate monthly and quarterly summaries.
-6. Add asset trend extraction.
-7. Build the single-user web dashboard.
-8. Add anomaly detection and correction workflow.
-9. Add Google Photos as an optional source.
-
-
-## Local Development
-
-1. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-2. Copy `.env.example` to `.env` and fill in the Google Drive folder ID, Google Sheet ID, service account credentials or OAuth credentials, AI key, and single-user email.
-
-3. Start the app:
-
-   ```bash
-   npm run dev
-   ```
-
-4. Run Phase 1 ingestion with a POST request while the app is running:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/ingest -H "Content-Type: application/json" -d "{}"
-   ```
-
-   To re-download and re-register known screenshots, send `{ "forceReprocess": true }` in the request body.
-
-5. Process pending cached screenshots through extraction and normalization:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/process -H "Content-Type: application/json" -d "{}"
-   ```
-
-   This writes normalized `Transactions`, `AssetSnapshots`, and `ReviewQueue` rows back to the configured Google Sheet.
-
-6. Apply a review correction when needed:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/corrections/apply -H "Content-Type: application/json" -d '{"reviewItemId":"review-id","fieldName":"category","newValue":"groceries","applyFuture":true}'
-   ```
-
-7. Refresh summary and asset trend tabs:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/summaries/refresh
-   ```
-
-Private cached screenshots are written under `data/private/`, which is intentionally ignored by git. Files older than `SOURCE_IMAGE_RETENTION_DAYS` are removed at the start of ingestion.
-
-## Capstone Demo Flow
-
-1. Put 5 to 20 financial screenshots in the configured Google Drive folder.
-2. Start the app with `npm run dev`.
-3. Run the guided workflow:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/workflow/run -H "Content-Type: application/json" -d "{}"
-   ```
-
-   Or seed sanitized demo data when Drive credentials/screenshots are not ready:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/demo/seed
-   ```
-
-4. Open the dashboard:
-
-   ```text
-   http://localhost:3000?email=YOUR_CONFIGURED_EMAIL
-   ```
-
-5. Review pending items in the dashboard and apply corrections with `/api/corrections/apply` when needed.
-6. Corrections automatically refresh trend and anomaly tabs; use `/api/summaries/refresh` only when you want to rebuild summaries manually.
-
-## Definition of Done for the Capstone Demo
-
-The demo should show a user placing financial screenshots into a dedicated source, running the assistant, reviewing a few low-confidence items, and opening a Google Sheet or web dashboard that displays monthly spending by category plus asset trend context.
-
+- [docs/specs/001-mvp/data-model.md](docs/specs/001-mvp/data-model.md): Google Sheets tabs and structured entities.
+- [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md): completed MVP tasks plus the next implementation plan.
+- [docs/MVP_SUBMISSION.md](docs/MVP_SUBMISSION.md): capstone submission notes.
+- [.env.example](.env.example): environment variable template.

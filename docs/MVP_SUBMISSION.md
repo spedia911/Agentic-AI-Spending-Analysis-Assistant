@@ -2,6 +2,8 @@
 
 This project is ready to present as a Drive-first MVP for an individual-only agentic spending analysis assistant.
 
+Current development phase: the Drive-first MVP backend and read-only dashboard are working. The next planned phase is assistant-grade UX: in-page workflow controls, inline review corrections, clearer spending versus income summaries, anomaly resolution, source evidence, and guided first-time setup.
+
 ## What the Demo Shows
 
 1. A configured Google Drive folder acts as the screenshot inbox.
@@ -55,7 +57,13 @@ Use this path when Google Drive, Google Sheets, and an AI provider are configure
 - Google Photos remains an optional extension because the project requirements intentionally defer it until the Drive workflow is stable.
 - Source screenshots are cached only under `data/private/`, which is ignored by git and cleaned according to `SOURCE_IMAGE_RETENTION_DAYS`.
 - Account labels and logs are designed to avoid full account number exposure.
+- Current dashboard correction is limited: review items and anomalies are visible, while most corrections still use the API or Google Sheet. Inline correction and anomaly resolution are tracked in `docs/specs/001-mvp/tasks.md`.
 
 ## Verification Status
 
-A project-wide TypeScript no-emit check through the TypeScript API reports zero diagnostics in the current coding environment. The normal Vitest command and an in-process Vitest attempt are both blocked here by a Windows command-spawn permission error inside the local environment, so run `npm test` from a normal local terminal before final submission if possible.
+Current local verification passes for the submitted MVP:
+
+- `vitest run`: 13 test files passed, 52 tests passed.
+- `eslint`: zero reported issues.
+- `tsc --noEmit`: zero reported diagnostics.
+- `next build`: production build completes successfully, with the dashboard rendered dynamically so runtime Google and AI credentials are not required at compile time.

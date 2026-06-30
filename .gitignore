@@ -26,6 +26,7 @@ build/
 .next/
 out/
 coverage/
+*.tsbuildinfo
 
 # Local data and generated artifacts
 data/raw/

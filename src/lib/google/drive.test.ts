@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { listDriveScreenshots, downloadDriveFile } from './drive';
-import fs from 'fs';
-import { Readable } from 'stream';
+import fs, { type WriteStream } from 'fs';
+import { Readable, Writable } from 'stream';
 
 // Mock auth client
 vi.mock('./auth', () => ({
@@ -78,35 +78,30 @@ describe('Google Drive Module', () => {
 
   describe('downloadDriveFile', () => {
     it('downloads drive file and pipes stream', async () => {
-      const mockStream = new Readable();
-      mockStream._read = () => {};
-      setTimeout(() => {
-        mockStream.emit('end');
-      }, 10);
+      const mockStream = Readable.from(['file-chunk']);
 
       mockFilesGet.mockResolvedValueOnce({
         data: mockStream,
       });
 
-      const mockWriteClose = vi.fn();
-      const mockWriteStream = {
-        on: vi.fn(function(event, callback) {
-          if (event === 'finish') {
-            setTimeout(callback, 20);
-          }
-          return mockWriteStream;
+      const writtenChunks: Buffer[] = [];
+      const mockWriteStream = Object.assign(
+        new Writable({
+          write(chunk: Buffer | string, _encoding, callback) {
+            writtenChunks.push(Buffer.from(chunk));
+            callback();
+          },
         }),
-        close: mockWriteClose,
-      };
+        { close: vi.fn() }
+      );
 
-      vi.spyOn(fs, 'createWriteStream').mockReturnValue(mockWriteStream as any);
+      vi.spyOn(fs, 'createWriteStream').mockReturnValue(mockWriteStream as unknown as WriteStream);
       vi.spyOn(fs, 'existsSync').mockReturnValue(true);
 
       const downloadPromise = downloadDriveFile('file-1', 'path/to/image.png');
-      mockStream.push('file-chunk');
-      mockStream.push(null);
 
       await expect(downloadPromise).resolves.toBeUndefined();
+      expect(Buffer.concat(writtenChunks).toString()).toBe('file-chunk');
       expect(mockFilesGet).toHaveBeenCalledWith(
         expect.objectContaining({
           fileId: 'file-1',

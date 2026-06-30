@@ -162,21 +162,21 @@
   background: #b42318;
 }
 
-table {
+.dataTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
 
-th,
-td {
+.dataTable th,
+.dataTable td {
   padding: 10px 8px;
   border-bottom: 1px solid #eaecf0;
   text-align: left;
   white-space: nowrap;
 }
 
-th {
+.dataTable th {
   color: #667085;
   font-weight: 600;
 }
