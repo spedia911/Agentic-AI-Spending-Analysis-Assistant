@@ -2,7 +2,7 @@
 
 Use these prompts one at a time. After each prompt, verify the acceptance criteria in `docs/specs/001-mvp/tasks.md` before moving on.
 
-Status: Prompts 1 through 10 correspond to the implemented Drive-first MVP. Prompt 11 starts the next implementation phase focused on making the dashboard feel like an assistant instead of a read-only report.
+Status: Prompts 1 through 10 correspond to the implemented Drive-first MVP. Prompt 11 is partially implemented: workflow actions, staged import review, batch corrections, asset snapshot review handling, Spending Explorer cleanup, and spending/income separation are now in place. Remaining assistant-grade UX work includes setup health checks, richer source evidence, and anomaly resolution.
 
 ## Prompt 1: Scaffold the App
 
@@ -46,4 +46,4 @@ Create a polished demo flow. Add setup instructions, empty states, error states,
 
 ## Prompt 11: Build Assistant-Grade UX
 
-Upgrade the read-only dashboard into an action-oriented assistant cockpit. Read the "Next Implementation Plan: Assistant-Grade UX" section in `docs/specs/001-mvp/tasks.md` first. Add visible workflow actions, setup health checks, review correction cards with suggested options, transaction type corrections, anomaly resolution controls, source evidence display, and clearer spending versus income metrics. Keep the MVP single-user and Drive-first. Add tests for correction workflows, spending/income summary behavior, and anomaly status updates.
+Continue upgrading the dashboard into an action-oriented assistant cockpit. Read the "Next Implementation Plan: Assistant-Grade UX" section in `docs/specs/001-mvp/tasks.md` first. Extend the existing workflow actions, staged import review, review correction page, asset snapshot correction controls, Spending Explorer cleanup, and spending/income metrics with setup health checks, anomaly resolution controls, richer source evidence display, and guided first-time setup. Keep the MVP single-user and Drive-first. Add tests for correction workflows, spending/income summary behavior, and anomaly status updates.

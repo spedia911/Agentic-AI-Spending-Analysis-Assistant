@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { Env } from '../env';
 import type { Correction, ReviewItem, Transaction } from '../../types/domain';
+import { isCardPayment } from '../finance/spending';
 
 export type SpendingCategory =
   | 'groceries'
@@ -68,7 +69,7 @@ const AMBIGUOUS_MERCHANTS = [/amazon/i, /costco/i, /walmart/i, /target/i, /paypa
 const RULES: CategoryRule[] = [
   { category: 'groceries', confidence: 0.95, reason: 'Matched grocery merchant rule.', patterns: [/trader joe/i, /whole foods/i, /safeway/i, /kroger/i, /h mart/i, /aldi/i, /grocery/i] },
   { category: 'dining', confidence: 0.94, reason: 'Matched dining merchant rule.', patterns: [/restaurant/i, /cafe/i, /coffee/i, /starbucks/i, /mcdonald/i, /chipotle/i, /doordash/i, /ubereats/i] },
-  { category: 'utilities', confidence: 0.94, reason: 'Matched utility merchant rule.', patterns: [/electric/i, /water/i, /gas utility/i, /internet/i, /comcast/i, /xfinity/i, /verizon/i, /at&t/i] },
+  { category: 'utilities', confidence: 0.94, reason: 'Matched utility merchant rule.', patterns: [/pge/i, /pg&e/i, /pacific gas/i, /electric/i, /water/i, /gas utility/i, /internet/i, /comcast/i, /xfinity/i, /verizon/i, /at&t/i] },
   { category: 'transportation', confidence: 0.93, reason: 'Matched transportation merchant rule.', patterns: [/uber/i, /lyft/i, /shell/i, /chevron/i, /exxon/i, /parking/i, /transit/i, /metro/i] },
   { category: 'rent', confidence: 0.96, reason: 'Matched rent merchant rule.', patterns: [/rent/i, /apartment/i, /property management/i, /landlord/i] },
   { category: 'subscriptions', confidence: 0.94, reason: 'Matched subscription merchant rule.', patterns: [/netflix/i, /spotify/i, /hulu/i, /disney/i, /youtube/i, /openai/i, /icloud/i, /subscription/i] },
@@ -125,8 +126,11 @@ function categoryForTransactionType(transaction: Transaction): CategoryDecision 
   if (transaction.transaction_type === 'income') {
     return { category: 'income', confidence: 0.98, reason: 'Transaction type is income.', alternatives: [], needsReview: false };
   }
-  if (transaction.transaction_type === 'transfer' || transaction.transaction_type === 'payment') {
+  if (transaction.transaction_type === 'transfer') {
     return { category: 'transfer', confidence: 0.94, reason: 'Transaction type is transfer/payment.', alternatives: [], needsReview: false };
+  }
+  if (transaction.transaction_type === 'payment' && (/transfer|zelle|venmo|cash app/i.test(transaction.merchant_normalized + ' ' + transaction.evidence_text) || isCardPayment(transaction))) {
+    return { category: 'transfer', confidence: 0.94, reason: 'Payment appears to be an internal transfer or card payment.', alternatives: [], needsReview: false };
   }
   if (transaction.transaction_type === 'fee') {
     return { category: 'fees', confidence: 0.96, reason: 'Transaction type is fee.', alternatives: [], needsReview: false };

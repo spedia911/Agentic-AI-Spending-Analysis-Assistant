@@ -77,8 +77,16 @@ describe('Google Sheets foundation', () => {
       );
     });
 
-    it('creates a new spreadsheet when the configured sheet cannot be opened', async () => {
+    it('reports an actionable error when the configured sheet cannot be opened', async () => {
       mockSpreadsheetsGet.mockRejectedValueOnce(new Error('not found'));
+
+      await expect(initializeSpreadsheet('missing-sheet')).rejects.toThrow(
+        'Unable to open GOOGLE_SHEET_ID "missing-sheet". Confirm the ID is correct and share the Sheet with the configured Google service account as Editor.'
+      );
+      expect(mockSpreadsheetsCreate).not.toHaveBeenCalled();
+    });
+
+    it('creates a new spreadsheet only for the local mock placeholder', async () => {
       mockSpreadsheetsCreate.mockResolvedValueOnce({
         data: {
           spreadsheetId: 'new-sheet-456',
@@ -87,7 +95,7 @@ describe('Google Sheets foundation', () => {
       });
       mockValuesGet.mockResolvedValue({ data: { values: [] } });
 
-      await expect(initializeSpreadsheet('missing-sheet')).resolves.toBe('new-sheet-456');
+      await expect(initializeSpreadsheet('mock-google-sheet-id-abc')).resolves.toBe('new-sheet-456');
       expect(mockSpreadsheetsCreate).toHaveBeenCalledWith({
         requestBody: {
           properties: { title: 'Agentic Spending Analysis Dashboard' },

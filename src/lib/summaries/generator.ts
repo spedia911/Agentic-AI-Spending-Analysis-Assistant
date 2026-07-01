@@ -1,4 +1,5 @@
 import type { AssetSnapshot, AssetTrend, MonthlySummary, QuarterlySummary, Transaction } from '../../types/domain';
+import { spendingAmount } from '../finance/spending';
 
 export interface SummaryResult {
   monthlySummaries: MonthlySummary[];
@@ -13,8 +14,18 @@ function quarterForMonth(month: string): string {
 }
 
 function expenseAmount(transaction: Transaction): number {
-  if (transaction.transaction_type !== 'expense' && transaction.transaction_type !== 'fee') return 0;
-  return Math.abs(transaction.amount);
+  return spendingAmount(transaction);
+}
+
+function summaryAmount(transaction: Transaction): number {
+  if (
+    spendingAmount(transaction) > 0 ||
+    transaction.transaction_type === 'income' ||
+    transaction.transaction_type === 'refund'
+  ) {
+    return Math.abs(transaction.amount);
+  }
+  return 0;
 }
 
 function isUsableTransaction(transaction: Transaction): boolean {
@@ -42,7 +53,7 @@ export function generateMonthlySummaries(transactions: Transaction[]): MonthlySu
   for (const transaction of transactions.filter(isUsableTransaction)) {
     const key = transaction.observed_month + '|' + transaction.category;
     const current = grouped.get(key) ?? { total: 0, count: 0, reviewed: 0, unresolved: 0 };
-    current.total += expenseAmount(transaction);
+    current.total += summaryAmount(transaction);
     current.count += 1;
     if (transaction.review_status === 'resolved') current.reviewed += 1;
     if (transaction.review_status === 'pending') current.unresolved += 1;

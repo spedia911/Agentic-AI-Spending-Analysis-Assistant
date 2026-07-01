@@ -129,4 +129,25 @@ describe('categorizeTransactions', () => {
 
     expect(result.transactions.map((item) => item.category)).toEqual(['income', 'transfer']);
   });
+
+  it('categorizes bank bill payments as spending when the merchant is a biller', () => {
+    const result = categorizeTransactions([
+      transaction({
+        transaction_id: 'pge-1',
+        transaction_type: 'payment',
+        merchant_raw: 'PG&E WEB PAYMENT',
+        merchant_normalized: 'PG&E',
+        account_label: 'Checking *1234',
+      }),
+      transaction({
+        transaction_id: 'rent-1',
+        transaction_type: 'payment',
+        merchant_raw: 'Apartment Rent',
+        merchant_normalized: 'Apartment Rent',
+        account_label: 'Checking *1234',
+      }),
+    ]);
+
+    expect(result.transactions.map((item) => item.category)).toEqual(['utilities', 'rent']);
+  });
 });

@@ -2,7 +2,7 @@
 
 This is a Drive-first personal finance assistant for the Kaggle Vibe Coding Capstone Project.
 
-It reads financial screenshots from a Google Drive folder, extracts transactions and balances with an AI vision model, writes structured rows to Google Sheets, and shows a single-user dashboard for monthly spending, asset context, review items, and anomalies.
+It reads financial screenshots from a Google Drive folder, extracts transactions and balances with an AI vision model, writes structured rows to Google Sheets, and shows a single-user dashboard for monthly spending, asset context, and correction guidance.
 
 ## What Works Today
 
@@ -14,9 +14,23 @@ It reads financial screenshots from a Google Drive folder, extracts transactions
 - Asset trend rows from visible balance screenshots.
 - Duplicate, spending spike, balance drop, and missing month anomalies.
 - A single-user dashboard gated by `SINGLE_USER_EMAIL`.
+- Dashboard action buttons for running the workflow, refreshing summaries, force reprocessing, and seeding demo data.
+- A dedicated `/import` page for importing Drive snapshots into a private staging review before writing to Google Sheets.
+- A dedicated `/review` page for applying many corrections at once.
+- The Spending Analysis dashboard shows a correction notice instead of inline correction forms, so analysis stays uncluttered.
+- A spending explorer with month/category filters, a clickable monthly category pie chart, category totals, and transaction rows.
+- Spending Explorer transaction rows support inline category correction and removing a row from spending analysis.
+- Review corrections can be filtered and folded by severity.
+- Asset snapshot reviews, such as Card Balance checks, can be kept, ignored, or corrected from the review page.
+- Month-only batch corrections for transactions where exact dates are not needed for monthly spending totals.
+- Same-merchant transactions stay separate during review, so two transactions at the same store can receive different categories.
+- Exact same-merchant, same-date, same-amount duplicate risks default to "duplicate - exclude from spending" for the second matching row.
+- Separate dashboard metrics for spending, income, net cash flow, and transfers/card payments.
+- Bank-account bill payments, such as utilities and rent, can count as spending when merchant evidence supports that category.
+- Credit card payments found in bank activity are excluded from spending totals.
 - A sanitized demo seed endpoint so you can test the dashboard without real screenshots.
 
-Current limitation: the dashboard is mostly read-only. It shows review items and anomalies, but the next implementation should add a friendly correction workflow directly in the page. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the next implementation plan.
+Current limitation: anomaly resolution, richer source evidence navigation, source-document review handling, and deeper setup checks are still in progress. The dashboard now supports batch transaction correction, asset snapshot review correction, staged import review, and inline Spending Explorer cleanup. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the next implementation plan.
 
 ## What You Need Before Running
 
@@ -227,7 +241,7 @@ Refresh the browser.
 Expected result:
 
 - The Google Sheet has populated tabs.
-- The dashboard shows spending, asset trends, reviews, and anomalies.
+- The dashboard shows spending totals, the category pie chart, filtered spending rows, and asset trends.
 
 ## Step 8: Test With Real Screenshots
 
@@ -257,15 +271,35 @@ Use force reprocess carefully because it reruns known files in that Drive folder
 
 ## Current User Experience Notes
 
-The MVP proves the backend workflow, but the dashboard still needs a friendlier correction experience.
+The MVP now includes the first assistant-grade UX slice, but a few dashboard workflows still need refinement.
+
+Use the dashboard action center to import, run, or refresh the workflow. Use `/import?email=YOUR_CONFIGURED_EMAIL` when you want to review extracted snapshot rows before they are logged to Google Sheets. The import page lets you:
+
+- Import snapshots from the configured Drive folder into a private staging file.
+- Review extracted spendings grouped by each source snapshot.
+- Correct transaction types, categories, amounts, months, and merchants before logging.
+- Select common categories from a dropdown or add a custom category when needed.
+- Save staged edits without writing to Google Sheets.
+- Commit reviewed rows to Google Sheets only when ready.
+
+Use the spending explorer on the dashboard to filter month/category totals and click a pie-chart category to inspect its transactions. From the transaction table, you can change a transaction category with a dropdown or remove a row from spending analysis. Use `/review?email=YOUR_CONFIGURED_EMAIL` when you want to clean many items already in the Sheet. The review page lets you:
+
+- Select several pending reviews and apply them in one batch.
+- Filter or fold reviews by high, medium, or low severity.
+- Set a month like `2026-06` for many transactions without entering exact dates.
+- Correct two transactions from the same merchant separately.
+- Mark an exact duplicate as excluded from spending, or keep it as real spending when both rows are legitimate.
+- Resolve asset snapshot reviews by keeping the snapshot, ignoring the review, or correcting month, date, balance, account label, or balance type.
+- Leave "apply to future similar merchants" unchecked when same-merchant transactions should stay different.
+
+If a bank activity row is extracted as `transfer` but is actually rent or another spending category, change the staged category to `rent` or another spending category before committing. Corrected transfer rows with explicit spending categories are included in spending analysis.
 
 Known gaps:
 
-- The dashboard shows review items but does not yet let you correct them inline.
-- Income and spending are not clearly separated in the dashboard.
-- Duplicate anomalies do not show the related transactions side by side.
-- The page does not yet have buttons to run workflow, refresh summaries, seed demo data, or force reprocess.
-- Evidence text and source references exist in Sheets but are not visible enough in the dashboard.
+- Duplicate anomalies show related records, but do not yet have one-click "keep both" or "mark duplicate" resolution.
+- Source document review items still need richer correction handling.
+- Full setup health checks for Drive, Sheets, and AI access are not yet available in the page.
+- Evidence text is shown for review cards, but source screenshot preview/navigation is still future work.
 
 These are now captured in the next implementation plan in [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md).
 
@@ -305,6 +339,14 @@ Apply a correction through the API:
 curl -X POST http://localhost:3000/api/corrections/apply \
   -H "Content-Type: application/json" \
   -d '{"reviewItemId":"review-id","fieldName":"category","newValue":"groceries","applyFuture":true}'
+```
+
+Apply several corrections through the API:
+
+```bash
+curl -X POST http://localhost:3000/api/corrections/batch \
+  -H "Content-Type: application/json" \
+  -d '{"corrections":[{"reviewItemId":"review-id-1","fieldName":"category","newValue":"utilities"},{"transactionId":"txn-id-2","fieldName":"observed_month","newValue":"2026-06"}]}'
 ```
 
 ## Troubleshooting

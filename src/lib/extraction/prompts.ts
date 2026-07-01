@@ -53,6 +53,7 @@ export function buildBankActivityExtractionPrompt(source: Pick<ExtractionSourceI
     'You are extracting bank activity and visible balance data for a personal spending analysis assistant.',
     'Focus on activity rows plus any visible checking, savings, credit balance, or available credit snapshots.',
     'If rows include deposits, payments, transfers, or fees, use the best transaction_type_hint from visible labels.',
+    'For bank outflows to billers such as rent, utilities, PG&E, internet, or subscriptions, keep the merchant/description text so categorization can count them as spending.',
     'If an account balance is visible, create an asset_snapshots item even when no activity rows are visible.',
     'Do not expose full account numbers; copy only masked labels when visible.',
     'Source document ID: ' + source.sourceDocumentId,

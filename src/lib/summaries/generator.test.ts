@@ -92,6 +92,80 @@ describe('summary generation', () => {
     });
   });
 
+  it('keeps income visible in category summaries without treating transfers as spending', () => {
+    const monthly = generateMonthlySummaries([
+      transaction({ amount: 2500, transaction_type: 'income', category: 'income' }),
+      transaction({ amount: 500, transaction_type: 'transfer', category: 'transfer' }),
+    ]);
+
+    expect(monthly.find((row) => row.category === 'income')).toMatchObject({
+      total_amount: 2500,
+      transaction_count: 1,
+    });
+    expect(monthly.find((row) => row.category === 'transfer')).toMatchObject({
+      total_amount: 0,
+      transaction_count: 1,
+    });
+  });
+
+  it('counts bank bill payments as spending when categorized as bills or rent', () => {
+    const monthly = generateMonthlySummaries([
+      transaction({ amount: 180, transaction_type: 'payment', merchant_normalized: 'PG&E', category: 'utilities' }),
+      transaction({ amount: 2200, transaction_type: 'payment', merchant_normalized: 'Apartment Rent', category: 'rent' }),
+      transaction({ amount: 500, transaction_type: 'payment', merchant_normalized: 'Credit Card Payment', category: 'transfer' }),
+    ]);
+
+    expect(monthly.find((row) => row.category === 'utilities')).toMatchObject({ total_amount: 180 });
+    expect(monthly.find((row) => row.category === 'rent')).toMatchObject({ total_amount: 2200 });
+    expect(monthly.find((row) => row.category === 'transfer')).toMatchObject({ total_amount: 0 });
+  });
+
+  it('excludes bank activity card payments from spending even when category is not transfer yet', () => {
+    const monthly = generateMonthlySummaries([
+      transaction({
+        amount: 850,
+        transaction_type: 'payment',
+        merchant_raw: 'CHASE CREDIT CARD PAYMENT',
+        merchant_normalized: 'Chase Credit Card Payment',
+        category: 'miscellaneous',
+        evidence_text: 'CHASE CREDIT CARD PAYMENT -850.00',
+      }),
+      transaction({
+        amount: 160,
+        transaction_type: 'payment',
+        merchant_raw: 'PG&E WEB PAYMENT',
+        merchant_normalized: 'PG&E',
+        category: 'utilities',
+        evidence_text: 'PG&E WEB PAYMENT -160.00',
+      }),
+    ]);
+
+    expect(monthly.find((row) => row.category === 'miscellaneous')).toMatchObject({ total_amount: 0 });
+    expect(monthly.find((row) => row.category === 'utilities')).toMatchObject({ total_amount: 160 });
+  });
+
+  it('counts transfer rows as spending when the user corrects category to rent', () => {
+    const monthly = generateMonthlySummaries([
+      transaction({
+        amount: 2100,
+        transaction_type: 'transfer',
+        merchant_raw: 'Monthly rent transfer',
+        merchant_normalized: 'Monthly rent transfer',
+        category: 'rent',
+      }),
+      transaction({
+        amount: 400,
+        transaction_type: 'transfer',
+        merchant_raw: 'Savings transfer',
+        merchant_normalized: 'Savings transfer',
+        category: 'transfer',
+      }),
+    ]);
+
+    expect(monthly.find((row) => row.category === 'rent')).toMatchObject({ total_amount: 2100 });
+    expect(monthly.find((row) => row.category === 'transfer')).toMatchObject({ total_amount: 0 });
+  });
+
   it('generates asset trend maintainability flags', () => {
     const trends = generateAssetTrends(
       [

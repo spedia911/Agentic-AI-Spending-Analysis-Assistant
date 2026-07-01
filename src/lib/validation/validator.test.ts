@@ -68,6 +68,26 @@ describe('validateTransactions', () => {
 
     expect(result.transactions.every((item) => item.validation_status === 'needs_review')).toBe(true);
     expect(result.reviewItems.filter((item) => item.issue_type === 'duplicate_risk')).toHaveLength(2);
-    expect(result.reviewItems[0].suggested_options).toContain('duplicate_remove_one');
+    expect(result.reviewItems[0].suggested_options[0]).toBe('needs_review');
+  });
+
+  it('defaults exact same-date same-amount duplicates to a single duplicate candidate', () => {
+    const result = validateTransactions(
+      [
+        transaction({ transaction_id: 'txn-a', transaction_date: '2026-06-12' }),
+        transaction({ transaction_id: 'txn-b', transaction_date: '2026-06-12' }),
+      ],
+      { now: '2026-06-29T10:00:00Z', today: '2026-06-29', duplicateLookbackDays: 3 }
+    );
+
+    const duplicateReviews = result.reviewItems.filter((item) => item.issue_type === 'duplicate_risk');
+    expect(duplicateReviews).toHaveLength(1);
+    expect(duplicateReviews[0]).toMatchObject({
+      target_id: 'txn-b',
+      severity: 'high',
+      suggested_options: ['rejected', 'valid', 'needs_review'],
+    });
+    expect(result.transactions.find((item) => item.transaction_id === 'txn-a')?.validation_status).toBe('valid');
+    expect(result.transactions.find((item) => item.transaction_id === 'txn-b')?.validation_status).toBe('needs_review');
   });
 });

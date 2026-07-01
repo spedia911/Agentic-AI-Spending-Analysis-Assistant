@@ -59,9 +59,21 @@ export interface ReviewItem {
 
 export interface Correction {
   correction_id: string; // Stable ID
-  target_type: 'transaction' | 'merchant_rule';
+  target_type: 'transaction' | 'merchant_rule' | 'asset_snapshot';
   target_id: string; // Linked ID
-  field_name: 'category' | 'merchant_normalized' | 'amount' | 'date';
+  field_name:
+    | 'category'
+    | 'merchant_normalized'
+    | 'amount'
+    | 'date'
+    | 'observed_month'
+    | 'transaction_type'
+    | 'validation_status'
+    | 'account_label'
+    | 'balance'
+    | 'balance_type'
+    | 'observed_date'
+    | 'review_status';
   old_value: string;
   new_value: string;
   apply_future: boolean; // True if should map similar merchants automatically in the future

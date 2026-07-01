@@ -79,14 +79,14 @@ Human-in-the-loop review items.
 
 ## Tab: Corrections
 
-Stores user corrections and merchant memory.
+Stores user corrections, asset snapshot review decisions, and merchant memory.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | correction_id | string | Stable ID |
-| target_type | string | transaction, merchant_rule |
+| target_type | string | transaction, asset_snapshot, merchant_rule |
 | target_id | string | Linked record |
-| field_name | string | category, merchant_normalized, amount, date |
+| field_name | string | category, merchant_normalized, amount, date, observed_month, transaction_type, validation_status, account_label, balance, balance_type, observed_date, review_status |
 | old_value | string | Original value |
 | new_value | string | Corrected value |
 | apply_future | boolean | Whether correction trains future merchant rule |
@@ -166,4 +166,3 @@ Workflow run history.
 | review_items_created | integer | Count |
 | anomalies_created | integer | Count |
 | error_summary | string | Masked |
-

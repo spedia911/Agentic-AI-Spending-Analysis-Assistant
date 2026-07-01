@@ -188,6 +188,11 @@ const BOOLEAN_COLUMNS = new Set(['apply_future']);
 const JSON_ARRAY_COLUMNS = new Set(['suggested_options', 'related_record_ids']);
 
 function updateLocalEnvSheetId(sheetId: string) {
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+    process.env.GOOGLE_SHEET_ID = sheetId;
+    return;
+  }
+
   const envPath = path.resolve(process.cwd(), '.env');
   if (fs.existsSync(envPath)) {
     let content = fs.readFileSync(envPath, 'utf-8');
@@ -293,6 +298,7 @@ export async function initializeSpreadsheet(sheetId: string): Promise<string> {
 
   let targetSheetId = sheetId;
   let spreadsheetMetadata: sheets_v4.Schema$Spreadsheet | null = null;
+  let configuredSheetError: Error | null = null;
 
   if (targetSheetId && targetSheetId !== 'mock-google-sheet-id-abc') {
     try {
@@ -300,8 +306,18 @@ export async function initializeSpreadsheet(sheetId: string): Promise<string> {
       spreadsheetMetadata = response.data;
       console.log('[Sheets] Connected to existing spreadsheet: ' + targetSheetId);
     } catch (err) {
-      console.warn('[Sheets] Failed to fetch configured spreadsheet: ' + (err as Error).message);
+      configuredSheetError = err as Error;
+      console.warn('[Sheets] Failed to fetch configured spreadsheet: ' + configuredSheetError.message);
     }
+  }
+
+  if (targetSheetId && targetSheetId !== 'mock-google-sheet-id-abc' && !spreadsheetMetadata) {
+    throw new Error(
+      'Unable to open GOOGLE_SHEET_ID "' +
+        targetSheetId +
+        '". Confirm the ID is correct and share the Sheet with the configured Google service account as Editor. Google reported: ' +
+        (configuredSheetError?.message ?? 'unknown access error')
+    );
   }
 
   if (!spreadsheetMetadata) {

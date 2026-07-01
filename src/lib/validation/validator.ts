@@ -124,19 +124,35 @@ function duplicateIssues(transactions: Transaction[], lookbackDays: number): Map
       const closeDate = dayDelta !== null && dayDelta <= lookbackDays;
 
       if (sameMerchant && sameAmount && closeDate) {
-        const issue: ValidationIssue = {
-          issueType: 'duplicate_risk',
-          severity: 'medium',
-          question:
-            'This looks like a duplicate charge for ' +
-            left.merchant_normalized +
-            ' around ' +
-            left.transaction_date +
-            '. Please confirm whether both rows are real.',
-          suggestedOptions: ['both_are_real', 'duplicate_remove_one', 'needs_more_review'],
-        };
-        issuesById.set(left.transaction_id, [...(issuesById.get(left.transaction_id) ?? []), issue]);
-        issuesById.set(right.transaction_id, [...(issuesById.get(right.transaction_id) ?? []), issue]);
+        const exactDuplicate = dayDelta === 0;
+        if (exactDuplicate) {
+          const issue: ValidationIssue = {
+            issueType: 'duplicate_risk',
+            severity: 'high',
+            question:
+              'This matches another row for ' +
+              right.merchant_normalized +
+              ' on ' +
+              right.transaction_date +
+              ' with the same amount. Mark this row as a duplicate unless it is truly separate spending.',
+            suggestedOptions: ['rejected', 'valid', 'needs_review'],
+          };
+          issuesById.set(right.transaction_id, [...(issuesById.get(right.transaction_id) ?? []), issue]);
+        } else {
+          const issue: ValidationIssue = {
+            issueType: 'duplicate_risk',
+            severity: 'medium',
+            question:
+              'This looks like a possible duplicate charge for ' +
+              left.merchant_normalized +
+              ' around ' +
+              left.transaction_date +
+              '. Please confirm whether both rows are real.',
+            suggestedOptions: ['needs_review', 'valid', 'rejected'],
+          };
+          issuesById.set(left.transaction_id, [...(issuesById.get(left.transaction_id) ?? []), issue]);
+          issuesById.set(right.transaction_id, [...(issuesById.get(right.transaction_id) ?? []), issue]);
+        }
       }
     }
   }

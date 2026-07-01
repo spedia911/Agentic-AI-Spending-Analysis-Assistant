@@ -2,7 +2,7 @@
 
 Use these tasks as the source of truth for incremental implementation.
 
-Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred. Phases 11 through 16 now define the next implementation plan for assistant-grade dashboard UX, inline corrections, income/spending separation, anomaly resolution, evidence review, and first-time setup guidance.
+Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred. Phase 11 is partially implemented, Phase 12 now includes batch transaction and asset snapshot review, Phase 13 is partially implemented for dashboard cash-flow separation and bank bill-payment spending, Phase 15 includes staged import review, and Phases 14 through 16 remain the next major assistant-grade UX work.
 
 ## Phase 0: Project Foundation
 
@@ -158,8 +158,8 @@ The Drive-first MVP proves the backend workflow, but the next implementation sho
 
 ## Phase 11: Dashboard Action Center
 
-- [ ] Add visible dashboard actions for running the full workflow, refreshing summaries, seeding demo data, and force reprocessing.
-- [ ] Show clear run status, latest run timestamp, files seen, files processed, errors, and next recommended action.
+- [x] Add visible dashboard actions for running the full workflow, refreshing summaries, seeding demo data, and force reprocessing.
+- [x] Show clear run status, latest run timestamp, files seen, files processed, errors, and next recommended action.
 - [ ] Add guardrails for force reprocess so the user understands it reruns already-known Drive files.
 - [ ] Show setup health checks for Drive folder access, Sheet access, AI key presence, and configured user email.
 
@@ -171,26 +171,38 @@ Acceptance:
 
 ## Phase 12: Review Correction Cockpit
 
-- [ ] Replace static review cards with actionable review cards.
-- [ ] Show target record details: merchant, date, amount, transaction type, category, confidence, evidence text, and source document ID.
-- [ ] Render suggested options as buttons or dropdowns for category, date, amount, merchant, and transaction type corrections.
-- [ ] Add a custom correction input for cases where the suggestions are wrong.
-- [ ] Add an "apply to future similar merchants" control for category corrections.
+- [x] Replace static review cards with actionable review cards.
+- [x] Show target record details: merchant, date, amount, transaction type, category, confidence, evidence text, and source document ID.
+- [x] Render suggested options as buttons or dropdowns for category, date, amount, merchant, and transaction type corrections.
+- [x] Add a custom correction input for cases where the suggestions are wrong.
+- [x] Add an "apply to future similar merchants" control for category corrections.
+- [x] Add a dedicated review page where multiple transaction corrections can be selected and applied in one batch.
+- [x] Add month-only correction support so rows can be assigned to a spending month without requiring an exact date.
+- [x] Keep same-merchant rows separate in review so two Trader Joe's transactions can receive different categories.
+- [x] Keep the Spending Analysis dashboard focused on summary insights and route correction work to the dedicated review page.
+- [x] Add severity filters and collapsible severity groups so users can focus on high, medium, or low priority corrections.
+- [x] Add asset snapshot review controls for keeping, ignoring, or correcting balance snapshot reviews.
 - [ ] Add filters for missing date, missing amount, duplicate risk, unclear category, low confidence, and asset snapshot review.
-- [ ] Rank reviews by severity, dollar amount, and downstream summary impact.
+- [x] Rank and group reviews by severity.
+- [ ] Rank reviews by dollar amount and downstream summary impact.
 
 Acceptance:
 
-- A user can resolve common pending reviews without leaving the dashboard.
-- Applying a correction updates the Google Sheet, refreshes summaries, and removes the item from the pending queue.
+- A user can resolve common pending reviews from the dashboard or the dedicated review page.
+- Applying corrections updates the Google Sheet, refreshes summaries once per batch, and removes resolved items from the pending queue.
 - The page explains what changed after each correction.
 
 ## Phase 13: Spending, Earnings, and Cash Flow Separation
 
 - [ ] Add explicit summary outputs for spending, income, refunds, transfers, payments, and fees.
-- [ ] Update summary generation so income is not shown as a zero-dollar spending category.
-- [ ] Add dashboard metrics for monthly spend, monthly income, net cash flow, transfers/payments, and unresolved amount.
-- [ ] Add transaction type correction support for expense, income, transfer, payment, fee, refund, and unknown.
+- [x] Update summary generation so income is not shown as a zero-dollar spending category.
+- [x] Add dashboard metrics for monthly spend, monthly income, net cash flow, transfers/payments, and unresolved amount.
+- [x] Add transaction type correction support for expense, income, transfer, payment, fee, refund, and unknown.
+- [x] Count bank-account bill payments, such as utilities and rent, as spending when merchant evidence supports that category.
+- [x] Exclude bank-activity credit card payments from spending totals.
+- [x] Add a monthly category pie chart with clickable categories and filtered transaction rows.
+- [x] Add a filterable spending summary table for month and category analysis.
+- [x] Add inline Spending Explorer controls to correct a transaction category or remove a row from spending analysis.
 - [ ] Add tests for sign handling across credit card charges, refunds, payments, bank deposits, bank withdrawals, and transfers.
 
 Acceptance:
@@ -203,7 +215,7 @@ Acceptance:
 
 - [ ] Show related transaction or asset records inside each anomaly card.
 - [ ] For duplicate charge anomalies, display the two records side by side with date, merchant, amount, source, and evidence.
-- [ ] Add actions for "keep both", "mark duplicate", "ignore", and "needs more review".
+- [x] Add transaction-level actions for "keep as real spending", "mark duplicate", and "needs more review".
 - [ ] Add an anomaly status update endpoint or extend the correction workflow to resolve anomalies.
 - [ ] Preserve an audit trail for anomaly decisions in Sheets.
 
@@ -213,13 +225,20 @@ Acceptance:
 - The user can resolve or ignore an anomaly from the dashboard.
 - Duplicate decisions update summaries or status consistently.
 
+Note: exact same-merchant, same-date, same-amount duplicate risks now default the second matching transaction to "mark duplicate" in the review workflow. Broader duplicate anomalies still need the full anomaly resolution UI.
+
 ## Phase 15: Evidence, Source, and File Selection UX
 
-- [ ] Show source document status counts: pending, processed, skipped, and error.
+- [x] Show source document status counts: pending, processed, skipped, and error.
+- [x] Add a pre-Sheets snapshot import page that stages extracted rows for review before logging them to Google Sheets.
+- [x] Let users correct staged spending rows, categories, transaction types, dates, months, merchants, and amounts before commit.
+- [x] Group staged import rows by source snapshot.
+- [x] Let users type custom categories during staged import review.
+- [x] Add category dropdown choices to staged import review so common categories do not need manual typing.
 - [ ] Show which Drive files were processed in the latest run.
 - [ ] Add guidance that file selection is folder-based: put only desired screenshots in the configured Drive folder.
 - [ ] Add a page section for unprocessed, errored, and unsupported files.
-- [ ] Surface evidence text for extracted rows and review items.
+- [x] Surface evidence text for extracted rows and review items.
 - [ ] Consider a lightweight file selection layer before processing if the Drive folder contains many screenshots.
 
 Acceptance:
