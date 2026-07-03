@@ -284,24 +284,26 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
           </div>
           <span>{data.sourceDocuments.length} tracked</span>
         </div>
-        <table className={styles.dataTable}>
-          <thead><tr><th>File</th><th>Status</th><th>Processed</th><th>Modified</th><th>Message</th></tr></thead>
-          <tbody>
-            {latestSources.length === 0 ? <tr><td colSpan={5}>No source files registered yet.</td></tr> : latestSources.map((source) => (
-              <tr key={source.source_document_id}>
-                <td>
-                  <Link className={styles.tableLink} href={'/source/' + encodeURIComponent(source.source_document_id) + '?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}>
-                    {source.file_name}
-                  </Link>
-                </td>
-                <td>{source.status}</td>
-                <td>{safeText(source.processed_at, '-')}</td>
-                <td>{safeText(source.modified_time, '-')}</td>
-                <td>{safeText(source.error_summary, '-')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className={styles.tableScroll}>
+          <table className={styles.dataTable}>
+            <thead><tr><th>File</th><th>Status</th><th>Processed</th><th>Modified</th><th>Message</th></tr></thead>
+            <tbody>
+              {latestSources.length === 0 ? <tr><td colSpan={5}>No source files registered yet.</td></tr> : latestSources.map((source) => (
+                <tr key={source.source_document_id}>
+                  <td>
+                    <Link className={styles.tableLink} href={'/source/' + encodeURIComponent(source.source_document_id) + '?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}>
+                      {source.file_name}
+                    </Link>
+                  </td>
+                  <td>{source.status}</td>
+                  <td>{safeText(source.processed_at, '-')}</td>
+                  <td>{safeText(source.modified_time, '-')}</td>
+                  <td>{safeText(source.error_summary, '-')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <SpendingExplorer defaultMonth={latestMonth} rows={spendingRows} />
@@ -342,24 +344,26 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
           </div>
           <span>{latestCashFlow.length} months</span>
         </div>
-        <table className={styles.dataTable}>
-          <thead><tr><th>Month</th><th>Spending</th><th>Income</th><th>Refunds</th><th>Transfers/Card Payments</th><th>Other Payments</th><th>Fees</th><th>Net</th><th>Status</th></tr></thead>
-          <tbody>
-            {latestCashFlow.length === 0 ? <tr><td colSpan={9}>No cash-flow summary rows yet. Refresh summaries after processing transactions.</td></tr> : latestCashFlow.map((row) => (
-              <tr key={row.month}>
-                <td>{row.month}</td>
-                <td>{currency(row.spending_total)}</td>
-                <td>{currency(row.income_total)}</td>
-                <td>{currency(row.refund_total)}</td>
-                <td>{currency(row.transfer_total)}</td>
-                <td>{currency(row.payment_total)}</td>
-                <td>{currency(row.fee_total)}</td>
-                <td>{currency(row.net_cash_flow)}</td>
-                <td>{row.completeness_status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className={styles.tableScroll}>
+          <table className={styles.dataTable}>
+            <thead><tr><th>Month</th><th>Spending</th><th>Income</th><th>Refunds</th><th>Transfers/Card Payments</th><th>Other Payments</th><th>Fees</th><th>Net</th><th>Status</th></tr></thead>
+            <tbody>
+              {latestCashFlow.length === 0 ? <tr><td colSpan={9}>No cash-flow summary rows yet. Refresh summaries after processing transactions.</td></tr> : latestCashFlow.map((row) => (
+                <tr key={row.month}>
+                  <td>{row.month}</td>
+                  <td>{currency(row.spending_total)}</td>
+                  <td>{currency(row.income_total)}</td>
+                  <td>{currency(row.refund_total)}</td>
+                  <td>{currency(row.transfer_total)}</td>
+                  <td>{currency(row.payment_total)}</td>
+                  <td>{currency(row.fee_total)}</td>
+                  <td>{currency(row.net_cash_flow)}</td>
+                  <td>{row.completeness_status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className={styles.panel}>
@@ -378,30 +382,34 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
       <section className={styles.gridTwo}>
         <div className={styles.panel}>
           <h2>Quarterly Trends</h2>
-          <table className={styles.dataTable}>
-            <thead><tr><th>Quarter</th><th>Category</th><th>Total</th><th>Delta</th></tr></thead>
-            <tbody>
-              {latestQuarters.length === 0 ? <tr><td colSpan={4}>No quarterly summaries yet.</td></tr> : latestQuarters.map((row) => (
-                <tr key={row.quarter + row.category}>
-                  <td>{row.quarter}</td><td>{row.category}</td><td>{currency(row.total_amount)}</td><td>{currency(row.quarter_over_quarter_delta)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className={styles.tableScroll}>
+            <table className={styles.dataTable}>
+              <thead><tr><th>Quarter</th><th>Category</th><th>Total</th><th>Delta</th></tr></thead>
+              <tbody>
+                {latestQuarters.length === 0 ? <tr><td colSpan={4}>No quarterly summaries yet.</td></tr> : latestQuarters.map((row) => (
+                  <tr key={row.quarter + row.category}>
+                    <td>{row.quarter}</td><td>{row.category}</td><td>{currency(row.total_amount)}</td><td>{currency(row.quarter_over_quarter_delta)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className={styles.panel}>
           <h2>Asset Trends</h2>
-          <table className={styles.dataTable}>
-            <thead><tr><th>Month</th><th>Account</th><th>Ending</th><th>Change</th><th>Spending</th><th>Flag</th></tr></thead>
-            <tbody>
-              {latestAssets.length === 0 ? <tr><td colSpan={6}>No asset snapshots yet.</td></tr> : latestAssets.map((row) => (
-                <tr key={row.month + row.account_label}>
-                  <td>{row.month}</td><td>{row.account_label}</td><td>{currency(row.ending_balance)}</td><td>{currency(row.monthly_change)}</td><td>{currency(row.related_spending_total)}</td><td>{row.maintainability_flag}</td>
-                </tr>
-            ))}
-            </tbody>
-          </table>
+          <div className={styles.tableScroll}>
+            <table className={`${styles.dataTable} ${styles.compactDataTable}`}>
+              <thead><tr><th>Month</th><th>Account</th><th>Balance</th><th>Change</th><th>Spend</th><th>Flag</th></tr></thead>
+              <tbody>
+                {latestAssets.length === 0 ? <tr><td colSpan={6}>No asset snapshots yet.</td></tr> : latestAssets.map((row) => (
+                  <tr key={row.month + row.account_label}>
+                    <td>{row.month}</td><td>{row.account_label}</td><td>{currency(row.ending_balance)}</td><td>{currency(row.monthly_change)}</td><td>{currency(row.related_spending_total)}</td><td>{row.maintainability_flag === 'unknown' ? '-' : row.maintainability_flag}</td>
+                  </tr>
+              ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

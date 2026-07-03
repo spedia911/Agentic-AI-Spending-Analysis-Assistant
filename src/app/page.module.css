@@ -96,6 +96,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: stretch;
   margin-bottom: 16px;
 }
 
@@ -348,9 +349,16 @@
 }
 
 .panel {
+  box-sizing: border-box;
+  min-width: 0;
   padding: 18px;
   margin-bottom: 16px;
-  overflow-x: auto;
+  overflow: hidden;
+}
+
+.gridTwo > .panel {
+  width: 100%;
+  margin: 0;
 }
 
 .panel h2 {
@@ -654,6 +662,15 @@
   font-size: 14px;
 }
 
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.tableScroll .dataTable {
+  min-width: 100%;
+}
+
 .dataTable th,
 .dataTable td {
   padding: 10px 8px;
@@ -665,6 +682,16 @@
 .dataTable th {
   color: #667085;
   font-weight: 600;
+}
+
+.compactDataTable {
+  font-size: 13px;
+}
+
+.compactDataTable th,
+.compactDataTable td {
+  padding-right: 5px;
+  padding-left: 5px;
 }
 
 .tableLink {
