@@ -154,17 +154,14 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
     <main className={styles.pageShell}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Single-user finance assistant</p>
-          <h1>Spending Analysis</h1>
+          <p className={styles.eyebrow}>Private finance review</p>
+          <h1>Agentic Spending Dashboard</h1>
+          <p className={styles.headerLead}>
+            Screenshot-derived transactions, cash flow, anomalies, and source evidence from Google Sheets.
+          </p>
         </div>
-        <div className={styles.sheetId}>Sheet {data.sheetId}</div>
+        <div className={styles.sheetId}>Sheets-backed results</div>
       </header>
-
-      <DashboardActions
-        importHref={'/import?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}
-        pendingReviews={data.reviewItems}
-        reviewHref={'/review?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}
-      />
 
       <section className={styles.safetyNotice}>
         <strong>Review-only assistant</strong>
@@ -407,6 +404,12 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
           </table>
         </div>
       </section>
+
+      <DashboardActions
+        importHref={'/import?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}
+        pendingReviews={data.reviewItems}
+        reviewHref={'/review?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}
+      />
     </main>
   );
 }

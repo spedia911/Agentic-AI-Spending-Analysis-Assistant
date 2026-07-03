@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveAnomaly, type AnomalyResolutionDecision } from '../../../../lib/anomalies';
+import { clearDashboardDataCache } from '../../../../lib/dashboard/data';
 import { safeErrorDetail } from '../../../../lib/privacy/redact';
 
 export async function POST(request: NextRequest) {
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest) {
       decision,
       duplicateTransactionId: typeof body.duplicateTransactionId === 'string' ? body.duplicateTransactionId : undefined,
     });
+    clearDashboardDataCache();
 
     return NextResponse.json(result);
   } catch (error) {

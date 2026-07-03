@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { clearDashboardDataCache } from '../../../../lib/dashboard/data';
 import { getEnv } from '../../../../lib/env';
 import { initializeSpreadsheet, upsertRows } from '../../../../lib/google/sheets';
 import { runIngestion } from '../../../../lib/orchestrator/ingest';
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       error_summary: processing.sourcesErrored > 0 ? String(processing.sourcesErrored) + ' source document(s) failed processing.' : null,
     };
     await upsertRows<RunState>(sheetId, 'Runs', 'run_id', [run]);
+    clearDashboardDataCache();
 
     return NextResponse.json({ ingestion, processing, summaries, run });
   } catch (error) {

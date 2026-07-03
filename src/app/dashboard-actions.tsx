@@ -113,59 +113,6 @@ export default function DashboardActions({ pendingReviews, importHref, reviewHre
 
   return (
     <>
-      <section className={styles.actionCenter} id="action-center">
-        <div>
-          <p className={styles.eyebrow}>Action center</p>
-          <h2>What should happen next?</h2>
-          <p>Run the workflow, refresh generated summaries, or seed safe demo rows without leaving the dashboard.</p>
-        </div>
-        <div className={styles.actionButtons}>
-          {importHref ? <a className={styles.primaryLink} href={importHref}>Import snapshots</a> : null}
-          {reviewHref ? <a className={styles.primaryLink} href={reviewHref}>Review corrections</a> : null}
-          <label className={styles.runLimitControl}>
-            Files this run
-            <input
-              min="1"
-              max="50"
-              onChange={(event) => setMaxDocuments(event.target.value)}
-              placeholder="All pending"
-              type="number"
-              value={maxDocuments}
-            />
-          </label>
-          <button disabled={busyAction !== null || healthBusy} onClick={testSetup} type="button">
-            {healthBusy ? 'Testing...' : 'Test setup'}
-          </button>
-          {(['run', 'refresh', 'seed', 'force'] as WorkflowAction[]).map((action) => (
-            <button
-              disabled={healthBusy || busyAction !== null || (workflowDisabled && (action === 'run' || action === 'force'))}
-              key={action}
-              onClick={() => runAction(action)}
-              type="button"
-            >
-              {busyAction === action ? 'Working...' : confirmingForce && action === 'force' ? 'Confirm force reprocess' : actionLabel(action)}
-            </button>
-          ))}
-        </div>
-        {message ? <p className={styles.statusMessage}>{message}</p> : null}
-        {healthReport ? (
-          <div className={styles.healthChecklist}>
-            <div className={styles.healthSummary}>
-              <strong>Setup health: {healthReport.status}</strong>
-              <span>{new Date(healthReport.checkedAt).toLocaleString()}</span>
-            </div>
-            {healthReport.items.map((healthItem) => (
-              <div className={styles.healthItem} data-status={healthItem.status} key={healthItem.id}>
-                <strong>{healthItem.label}</strong>
-                <span>{healthItem.status}</span>
-                <p>{healthItem.message}</p>
-                {healthItem.detail ? <small>{healthItem.detail}</small> : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
       {pendingReviews.length > 0 ? (
         <section className={styles.reviewNotice}>
           <div>
@@ -183,6 +130,70 @@ export default function DashboardActions({ pendingReviews, importHref, reviewHre
           {reviewHref ? <a className={styles.primaryLink} href={reviewHref}>Open review page</a> : null}
         </section>
       ) : null}
+
+      <details className={styles.maintenancePanel} id="data-maintenance">
+        <summary>
+          <span>
+            <strong>Data maintenance</strong>
+            <small>Optional controls for updating the Sheet-backed demo data.</small>
+          </span>
+        </summary>
+
+        <section className={styles.actionCenter}>
+          <div>
+            <p className={styles.eyebrow}>Operations</p>
+            <h2>Update dashboard data</h2>
+            <p>
+              These controls are for setup, reruns, and demo preparation. The reviewer-facing dashboard above stays useful without opening this panel.
+            </p>
+          </div>
+          <div className={styles.actionButtons}>
+            {importHref ? <a className={styles.primaryLink} href={importHref}>Review new screenshots</a> : null}
+            {reviewHref ? <a className={styles.primaryLink} href={reviewHref}>Resolve corrections</a> : null}
+            <label className={styles.runLimitControl}>
+              Files to process
+              <input
+                min="1"
+                max="50"
+                onChange={(event) => setMaxDocuments(event.target.value)}
+                placeholder="All pending"
+                type="number"
+                value={maxDocuments}
+              />
+            </label>
+            <button disabled={busyAction !== null || healthBusy} onClick={testSetup} type="button">
+              {healthBusy ? 'Checking...' : 'Check connections'}
+            </button>
+            {(['run', 'refresh', 'seed', 'force'] as WorkflowAction[]).map((action) => (
+              <button
+                disabled={healthBusy || busyAction !== null || (workflowDisabled && (action === 'run' || action === 'force'))}
+                key={action}
+                onClick={() => runAction(action)}
+                type="button"
+              >
+                {busyAction === action ? 'Working...' : confirmingForce && action === 'force' ? 'Confirm reprocess' : actionLabel(action)}
+              </button>
+            ))}
+          </div>
+          {message ? <p className={styles.statusMessage}>{message}</p> : null}
+          {healthReport ? (
+            <div className={styles.healthChecklist}>
+              <div className={styles.healthSummary}>
+                <strong>Connection check: {healthReport.status}</strong>
+                <span>{new Date(healthReport.checkedAt).toLocaleString()}</span>
+              </div>
+              {healthReport.items.map((healthItem) => (
+                <div className={styles.healthItem} data-status={healthItem.status} key={healthItem.id}>
+                  <strong>{healthItem.label}</strong>
+                  <span>{healthItem.status}</span>
+                  <p>{healthItem.message}</p>
+                  {healthItem.detail ? <small>{healthItem.detail}</small> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      </details>
     </>
   );
 }

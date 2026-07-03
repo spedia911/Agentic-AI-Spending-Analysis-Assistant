@@ -18,10 +18,18 @@
 .header h1,
 .accessPanel h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: 38px;
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.headerLead {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: #667085;
+  font-size: 16px;
+  line-height: 1.45;
 }
 
 .eyebrow {
@@ -44,6 +52,7 @@
 .gridTwo,
 .panel,
 .actionCenter,
+.maintenancePanel,
 .accessPanel {
   max-width: 1180px;
   margin-left: auto;
@@ -96,7 +105,39 @@
   gap: 18px;
   align-items: center;
   padding: 18px;
+}
+
+.maintenancePanel {
   margin-bottom: 16px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.maintenancePanel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 18px;
+  color: #18202a;
+  cursor: pointer;
+}
+
+.maintenancePanel summary span {
+  display: grid;
+  gap: 3px;
+}
+
+.maintenancePanel summary small {
+  color: #667085;
+  font-size: 13px;
+}
+
+.maintenancePanel .actionCenter {
+  border: 0;
+  border-top: 1px solid #eaecf0;
+  border-radius: 0;
 }
 
 .reviewNotice {

@@ -16,7 +16,7 @@ vi.mock('../google/sheets', () => ({
   readRows: mocks.readRows,
 }));
 
-import { canViewDashboard, loadDashboardData } from './data';
+import { canViewDashboard, clearDashboardDataCache, loadDashboardData } from './data';
 
 function transaction(id: string, category: string): Transaction {
   return {
@@ -73,6 +73,7 @@ function anomaly(id: string, status: Anomaly['status']): Anomaly {
 describe('dashboard data loading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearDashboardDataCache();
     mocks.getEnv.mockReturnValue({ GOOGLE_SHEET_ID: 'configured-sheet' });
     mocks.initializeSpreadsheet.mockResolvedValue('sheet-123');
     mocks.readRows.mockImplementation(async (_sheetId: string, tabName: string) => {
@@ -102,5 +103,14 @@ describe('dashboard data loading', () => {
     expect(data.quarterlySummaries[0].category).toBe('miscellaneous');
     expect(data.reviewItems.map((row) => row.review_item_id)).toEqual(['review-1']);
     expect(data.anomalies.map((row) => row.anomaly_id)).toEqual(['anomaly-1']);
+  });
+
+  it('reuses a fresh dashboard snapshot to avoid repeated Sheet reads', async () => {
+    const first = await loadDashboardData();
+    const second = await loadDashboardData();
+
+    expect(second).toBe(first);
+    expect(mocks.initializeSpreadsheet).toHaveBeenCalledTimes(1);
+    expect(mocks.readRows).toHaveBeenCalledTimes(10);
   });
 });

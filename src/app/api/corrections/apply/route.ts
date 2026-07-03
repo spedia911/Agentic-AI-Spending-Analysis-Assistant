@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { applyReviewCorrection } from '../../../../lib/corrections';
+import { clearDashboardDataCache } from '../../../../lib/dashboard/data';
 import { safeErrorDetail } from '../../../../lib/privacy/redact';
 
 export async function POST(request: NextRequest) {
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest) {
       newValue: body.newValue,
       applyFuture: body.applyFuture === true,
     });
+    clearDashboardDataCache();
 
     return NextResponse.json(result);
   } catch (error) {

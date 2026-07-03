@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { applyBatchCorrections } from '../../../../lib/corrections';
+import { clearDashboardDataCache } from '../../../../lib/dashboard/data';
 import { safeErrorDetail } from '../../../../lib/privacy/redact';
 
 type BatchCorrectionRequestItem = {
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
         applyFuture: item.applyFuture === true,
       })),
     });
+    clearDashboardDataCache();
 
     return NextResponse.json(result);
   } catch (error) {

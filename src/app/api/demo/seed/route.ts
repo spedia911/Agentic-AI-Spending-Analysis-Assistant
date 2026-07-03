@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { clearDashboardDataCache } from '../../../../lib/dashboard/data';
 import { getEnv } from '../../../../lib/env';
 import { initializeSpreadsheet, upsertRows } from '../../../../lib/google/sheets';
 import { refreshSummaryTabs } from '../../../../lib/orchestrator/summarize';
@@ -110,6 +111,7 @@ export async function POST() {
     await upsertRows<AssetSnapshot>(sheetId, 'AssetSnapshots', 'asset_snapshot_id', assetSnapshots);
     await upsertRows<ReviewItem>(sheetId, 'ReviewQueue', 'review_item_id', reviewItems);
     const summaries = await refreshSummaryTabs();
+    clearDashboardDataCache();
 
     return NextResponse.json({
       sheetId,
