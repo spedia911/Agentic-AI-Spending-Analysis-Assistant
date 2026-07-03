@@ -4,17 +4,20 @@ import { initializeSpreadsheet, upsertRows } from '../../../../lib/google/sheets
 import { runIngestion } from '../../../../lib/orchestrator/ingest';
 import { runPendingExtractionProcessing } from '../../../../lib/orchestrator/process';
 import { refreshSummaryTabs } from '../../../../lib/orchestrator/summarize';
+import { safeErrorDetail } from '../../../../lib/privacy/redact';
 import type { RunState } from '../../../../types/domain';
 
 function runId(startedAt: string): string {
   return 'run_' + startedAt.replace(/[^0-9]/g, '').slice(0, 14);
 }
 
-function maskError(value: string): string {
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
-    .replace(/\b\d{5,}\b/g, '[number]')
-    .slice(0, 240);
+export function maxDocumentsFromRequestBody(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 50) {
+    throw new Error('maxDocuments must be a whole number from 1 to 50.');
+  }
+  return numeric;
 }
 
 export async function POST(request: NextRequest) {
@@ -26,10 +29,11 @@ export async function POST(request: NextRequest) {
     const env = getEnv();
     sheetId = await initializeSpreadsheet(env.GOOGLE_SHEET_ID);
     const body = await request.json().catch(() => ({}));
+    const maxDocuments = maxDocumentsFromRequestBody(body.maxDocuments);
     const ingestion = await runIngestion({ forceReprocess: body.forceReprocess === true });
     const processing = await runPendingExtractionProcessing({
       forceReprocess: body.forceReprocess === true,
-      maxDocuments: typeof body.maxDocuments === 'number' ? body.maxDocuments : undefined,
+      maxDocuments,
     });
     const summaries = await refreshSummaryTabs();
     const finishedAt = new Date().toISOString();
@@ -49,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ingestion, processing, summaries, run });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error';
+    const detail = safeErrorDetail(error);
     if (sheetId) {
       const failedRun: RunState = {
         run_id: id,
@@ -61,7 +65,7 @@ export async function POST(request: NextRequest) {
         transactions_created: 0,
         review_items_created: 0,
         anomalies_created: 0,
-        error_summary: maskError(detail),
+        error_summary: detail,
       };
       await upsertRows<RunState>(sheetId, 'Runs', 'run_id', [failedRun]).catch(() => undefined);
     }
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Workflow run failed',
-        detail: maskError(detail),
+        detail,
       },
       { status: 500 }
     );

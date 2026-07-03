@@ -4,6 +4,7 @@ import type {
   Anomaly,
   AssetSnapshot,
   AssetTrend,
+  CashFlowSummary,
   MonthlySummary,
   QuarterlySummary,
   ReviewItem,
@@ -20,24 +21,28 @@ export interface DashboardData {
   monthlySummaries: MonthlySummary[];
   quarterlySummaries: QuarterlySummary[];
   assetTrends: AssetTrend[];
+  cashFlowSummaries: CashFlowSummary[];
   reviewItems: ReviewItem[];
   anomalies: Anomaly[];
   runs: RunState[];
 }
 
 function cleanCategory(category: string | null | undefined): string {
-  return category === 'duplicate_remove_one' ? 'miscellaneous' : category ?? 'miscellaneous';
+  const value = category?.trim();
+  if (!value || value === 'duplicate_remove_one') return 'miscellaneous';
+  return value;
 }
 
 export async function loadDashboardData(): Promise<DashboardData> {
   const env = getEnv();
   const sheetId = await initializeSpreadsheet(env.GOOGLE_SHEET_ID);
-  const [transactions, assetSnapshots, sourceDocuments, monthlySummaries, quarterlySummaries, assetTrends, reviewItems, anomalies, runs] = await Promise.all([
+  const [transactions, assetSnapshots, sourceDocuments, monthlySummaries, quarterlySummaries, cashFlowSummaries, assetTrends, reviewItems, anomalies, runs] = await Promise.all([
     readRows<Transaction>(sheetId, 'Transactions'),
     readRows<AssetSnapshot>(sheetId, 'AssetSnapshots'),
     readRows<SourceDocument>(sheetId, 'SourceDocuments'),
     readRows<MonthlySummary>(sheetId, 'MonthlySummary'),
     readRows<QuarterlySummary>(sheetId, 'QuarterlySummary'),
+    readRows<CashFlowSummary>(sheetId, 'CashFlowSummary'),
     readRows<AssetTrend>(sheetId, 'AssetTrends'),
     readRows<ReviewItem>(sheetId, 'ReviewQueue'),
     readRows<Anomaly>(sheetId, 'Anomalies'),
@@ -60,6 +65,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
       ...row,
       category: cleanCategory(row.category),
     })),
+    cashFlowSummaries,
     assetTrends,
     reviewItems: reviewItems.filter((item) => item.status === 'pending'),
     anomalies: anomalies.filter((item) => item.status === 'open'),

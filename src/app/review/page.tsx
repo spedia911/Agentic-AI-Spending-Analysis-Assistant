@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getEnv } from '../../lib/env';
 import { canViewDashboard, loadDashboardData } from '../../lib/dashboard';
+import { safeErrorDetail } from '../../lib/privacy/redact';
 import ReviewWorkbench from './review-workbench';
 import styles from '../page.module.css';
 
@@ -17,7 +18,7 @@ export default async function ReviewPage({ searchParams }: { searchParams?: Prom
         <section className={styles.accessPanel}>
           <h1>Review Corrections</h1>
           <p>Enter the configured user email as a query parameter to review corrections.</p>
-          <code>?email={env.SINGLE_USER_EMAIL}</code>
+          <code>?email=your_configured_email@example.com</code>
         </section>
       </main>
     );
@@ -33,7 +34,7 @@ export default async function ReviewPage({ searchParams }: { searchParams?: Prom
           <p className={styles.eyebrow}>Review unavailable</p>
           <h1>Review Corrections</h1>
           <p>Unable to read the configured Google Sheet. Check the Sheet ID and sharing, then refresh this page.</p>
-          <code>{error instanceof Error ? error.message : 'Unknown review error'}</code>
+          <code>{safeErrorDetail(error, 'Unknown review error')}</code>
         </section>
       </main>
     );
@@ -54,7 +55,9 @@ export default async function ReviewPage({ searchParams }: { searchParams?: Prom
       <ReviewWorkbench
         assetSnapshots={data.assetSnapshots}
         pendingReviews={data.reviewItems}
+        sourceDocuments={data.sourceDocuments}
         transactions={data.transactions}
+        userEmail={env.SINGLE_USER_EMAIL}
       />
     </main>
   );

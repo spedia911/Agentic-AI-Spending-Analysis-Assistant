@@ -26,6 +26,7 @@ const validExtraction = {
       transaction_type_hint: 'expense',
       confidence: 0.93,
       evidence_text: 'Jun 12 Trader Joes $42.19',
+      evidence_region: { x: 0.1, y: 0.22, width: 0.8, height: 0.06 },
     },
   ],
   asset_snapshots: [],
@@ -53,6 +54,22 @@ describe('parseExtractionJson', () => {
     expect(parsed.transactions).toHaveLength(1);
     expect(parsed.transactions[0].merchant_text).toBe('Trader Joes');
     expect(parsed.transactions[0].confidence).toBe(0.93);
+    expect(parsed.transactions[0].evidence_region).toEqual({ x: 0.1, y: 0.22, width: 0.8, height: 0.06 });
+  });
+
+  it('keeps extraction rows backward compatible when coordinate hints are absent', () => {
+    const extractionWithoutRegion = {
+      ...validExtraction,
+      transactions: validExtraction.transactions.map((transaction) => {
+        const copy: Record<string, unknown> = { ...transaction };
+        delete copy.evidence_region;
+        return copy;
+      }),
+    };
+
+    const parsed = parseExtractionJson(JSON.stringify(extractionWithoutRegion), 'drive-file-1');
+
+    expect(parsed.transactions[0].evidence_region).toBeUndefined();
   });
 
   it('corrects mismatched source document IDs and preserves a warning', () => {

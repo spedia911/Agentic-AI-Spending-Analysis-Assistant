@@ -4,6 +4,16 @@ This is a Drive-first personal finance assistant for the Kaggle Vibe Coding Caps
 
 It reads financial screenshots from a Google Drive folder, extracts transactions and balances with an AI vision model, writes structured rows to Google Sheets, and shows a single-user dashboard for monthly spending, asset context, and correction guidance.
 
+## For Kaggle Reviewers
+
+- Recommended track: **Concierge Agents**.
+- Fast evaluation: run `npm run verify:ci` to check docs, privacy, tests, type checking, lint, and production build without private credentials.
+- Full local evaluation: configure `.env`, then run `npm run verify`.
+- Final external submission check: after publishing the project link and YouTube video, run `npm run submission:final` with the Kaggle URL environment values from the final checklist.
+- Demo without private screenshots: start the app, open `/?email=YOUR_CONFIGURED_EMAIL`, and click **Seed demo data**.
+- Required submission assets are in [docs/submission](docs/submission): writeup draft, video script, YouTube upload metadata, user-story/UI review, evaluation scorecard, media plan, course-concept coverage, architecture/rubric evidence, cover image, and final Kaggle form checklist.
+- Public-link guidance is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); security and privacy notes are in [SECURITY.md](SECURITY.md).
+
 ## What Works Today
 
 - Google Drive folder ingestion for screenshots.
@@ -11,26 +21,37 @@ It reads financial screenshots from a Google Drive folder, extracts transactions
 - Gemini or OpenAI vision extraction.
 - Transaction normalization, validation, categorization, and review queue generation.
 - Monthly and quarterly summaries.
+- A generated `CashFlowSummary` Sheet tab for monthly spending, income, refunds, transfers/card payments, other payments, fees, and net cash flow.
 - Asset trend rows from visible balance screenshots.
 - Duplicate, spending spike, balance drop, and missing month anomalies.
 - A single-user dashboard gated by `SINGLE_USER_EMAIL`.
+- A visible review-only safety note: the assistant does not provide financial advice, initiate payments, or move money.
 - Dashboard action buttons for running the workflow, refreshing summaries, force reprocessing, and seeding demo data.
+- The dashboard can limit how many pending Drive files are processed in one run, which is useful when the folder has many screenshots.
+- A dashboard "Test setup" checklist for environment values, Drive folder access, Google Sheet tabs, service-account readiness, AI provider/model configuration, and the single-user email gate.
+- Force reprocess uses a two-step confirmation because it reruns already-known Drive files.
+- A dashboard source-file audit lists recent tracked screenshots, statuses, timestamps, and masked processing messages.
+- Source-file names link to a source evidence page with file metadata, extracted rows, open reviews/anomalies, a cached screenshot preview when available, optional row-region highlights, and a Drive handoff link.
 - A dedicated `/import` page for importing Drive snapshots into a private staging review before writing to Google Sheets.
 - A dedicated `/review` page for applying many corrections at once.
 - The Spending Analysis dashboard shows a correction notice instead of inline correction forms, so analysis stays uncluttered.
 - A spending explorer with month/category filters, a clickable monthly category pie chart, category totals, and transaction rows.
 - Spending Explorer transaction rows support inline category correction and removing a row from spending analysis.
-- Review corrections can be filtered and folded by severity.
+- Review corrections can be filtered by severity and issue type, then ranked by dollar impact inside each severity group.
 - Asset snapshot reviews, such as Card Balance checks, can be kept, ignored, or corrected from the review page.
+- Source document reviews can retry failed files, ignore unwanted files, or keep a source in its current status without editing Sheets manually.
 - Month-only batch corrections for transactions where exact dates are not needed for monthly spending totals.
 - Same-merchant transactions stay separate during review, so two transactions at the same store can receive different categories.
 - Exact same-merchant, same-date, same-amount duplicate risks default to "duplicate - exclude from spending" for the second matching row.
-- Separate dashboard metrics for spending, income, net cash flow, and transfers/card payments.
+- Separate dashboard metrics for spending, income, net cash flow, transfers/card payments, and unresolved review amount.
+- A next-best-actions panel that prioritizes failed source files, pending reviews, open anomalies, negative cash flow, and asset balance concerns.
+- A dashboard cash-flow table mirrors the generated `CashFlowSummary` output so reviewers can inspect money movement without opening the raw Sheet.
+- An anomaly review panel shows related transaction or asset records, supports "keep both", "mark reviewed", "ignore", and duplicate exclusion decisions, and records decisions in the Corrections tab.
 - Bank-account bill payments, such as utilities and rent, can count as spending when merchant evidence supports that category.
 - Credit card payments found in bank activity are excluded from spending totals.
 - A sanitized demo seed endpoint so you can test the dashboard without real screenshots.
 
-Current limitation: anomaly resolution, richer source evidence navigation, source-document review handling, and deeper setup checks are still in progress. The dashboard now supports batch transaction correction, asset snapshot review correction, staged import review, and inline Spending Explorer cleanup. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the next implementation plan.
+Current limitation: screenshot-region highlighting appears only when the extraction model returns reliable coordinate hints. The dashboard now supports setup health checks, batch transaction correction, asset snapshot review correction, source-document review correction, staged import review, anomaly resolution, source-file audit, source evidence pages, cached local screenshot previews when available, and inline Spending Explorer cleanup. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the next implementation plan.
 
 ## What You Need Before Running
 
@@ -42,6 +63,20 @@ You need four things:
 4. An AI API key, usually Gemini for easiest setup.
 
 The Drive folder can be empty at first. The Google Sheet can also be blank. The app will create the needed sheet tabs.
+
+## Quick Preflight Check
+
+Before starting the app, run this from the project folder:
+
+```bash
+sh scripts/preflight.sh
+```
+
+It checks for Node, npm, installed dependencies, `.env`, required environment values, and the configured service-account key file without printing secrets. If npm is already available, this also works:
+
+```bash
+npm run doctor
+```
 
 ## Step 1: Create the Google Drive Folder
 
@@ -154,9 +189,11 @@ Do not include the `models/` prefix.
 From the project folder:
 
 ```bash
-cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
+cd "/path/to/Kaggle Vibe Coding Capstone Project"
 cp .env.example .env
 ```
+
+The template already selects the recommended Gemini provider and model. Fill in your Drive, Sheet, service-account, AI key, and email values.
 
 Open it with TextEdit:
 
@@ -193,10 +230,17 @@ Restart the app after changing `.env`.
 
 ## Step 6: Start the App
 
+If you have not run the preflight yet:
+
+```bash
+cd "/path/to/Kaggle Vibe Coding Capstone Project"
+sh scripts/preflight.sh
+```
+
 If your computer has Node and npm:
 
 ```bash
-cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
+cd "/path/to/Kaggle Vibe Coding Capstone Project"
 npm install
 npm run dev
 ```
@@ -212,8 +256,8 @@ brew install node
 Or use the bundled Codex Node runtime:
 
 ```bash
-cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
-export PATH="/Users/namkyounglee/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH"
+cd "/path/to/Kaggle Vibe Coding Capstone Project"
+export PATH="/path/to/node/bin:$PATH"
 ./node_modules/.bin/next dev
 ```
 
@@ -229,12 +273,7 @@ Do not use the placeholder `YOUR_CONFIGURED_EMAIL`.
 
 Use this first. It checks that the app can write to your Google Sheet and display dashboard data.
 
-Open a second terminal window or tab. Keep the first terminal running the app server.
-
-```bash
-cd "/Users/namkyounglee/Documents/Kaggle Vibe Coding Capstone Project"
-curl -X POST http://localhost:3000/api/demo/seed
-```
+From the dashboard action center, click **Seed demo data**.
 
 Refresh the browser.
 
@@ -243,11 +282,19 @@ Expected result:
 - The Google Sheet has populated tabs.
 - The dashboard shows spending totals, the category pie chart, filtered spending rows, and asset trends.
 
+For developer testing, the same seed path is available as an API call:
+
+```bash
+curl -X POST http://localhost:3000/api/demo/seed
+```
+
 ## Step 8: Test With Real Screenshots
 
 1. Put 1 to 3 screenshots in the configured Google Drive folder.
 2. Use credit card transactions, bank activity, or balance screenshots.
-3. Run the workflow from a second terminal:
+3. From the dashboard action center, set **Files this run** and click **Run Drive workflow**.
+
+For developer testing, the same workflow is available as an API call:
 
 ```bash
 curl -X POST http://localhost:3000/api/workflow/run \
@@ -257,7 +304,7 @@ curl -X POST http://localhost:3000/api/workflow/run \
 
 Refresh the dashboard and check the Google Sheet tabs.
 
-The app skips files it already processed. If you add new screenshots, run the workflow again.
+The app skips files it already processed. If you add new screenshots, run the workflow again. In the dashboard, use "Files this run" to process a small batch from a crowded Drive folder.
 
 To reprocess files already seen in the folder:
 
@@ -267,16 +314,17 @@ curl -X POST http://localhost:3000/api/workflow/run \
   -d '{"forceReprocess":true}'
 ```
 
-Use force reprocess carefully because it reruns known files in that Drive folder.
+Use force reprocess carefully because it reruns known files in that Drive folder. In the dashboard, the first click arms the action and the second click confirms it.
 
 ## Current User Experience Notes
 
-The MVP now includes the first assistant-grade UX slice, but a few dashboard workflows still need refinement.
+The MVP now includes the first assistant-grade UX slice for a reviewer-facing Drive-first demo.
 
-Use the dashboard action center to import, run, or refresh the workflow. Use `/import?email=YOUR_CONFIGURED_EMAIL` when you want to review extracted snapshot rows before they are logged to Google Sheets. The import page lets you:
+Use the dashboard action center to test setup, import, run, or refresh the workflow. The "Test setup" action checks the configured Drive folder, Google Sheet, AI provider/model, service account path, and single-user email gate without processing screenshots. Use `/import?email=YOUR_CONFIGURED_EMAIL` when you want to review extracted snapshot rows before they are logged to Google Sheets. The import page lets you:
 
 - Import snapshots from the configured Drive folder into a private staging file.
-- Review extracted spendings grouped by each source snapshot.
+- Review extracted spending rows grouped by each source snapshot.
+- Exclude an unwanted source snapshot before any rows are committed.
 - Correct transaction types, categories, amounts, months, and merchants before logging.
 - Select common categories from a dropdown or add a custom category when needed.
 - Save staged edits without writing to Google Sheets.
@@ -285,25 +333,27 @@ Use the dashboard action center to import, run, or refresh the workflow. Use `/i
 Use the spending explorer on the dashboard to filter month/category totals and click a pie-chart category to inspect its transactions. From the transaction table, you can change a transaction category with a dropdown or remove a row from spending analysis. Use `/review?email=YOUR_CONFIGURED_EMAIL` when you want to clean many items already in the Sheet. The review page lets you:
 
 - Select several pending reviews and apply them in one batch.
-- Filter or fold reviews by high, medium, or low severity.
+- Filter or fold reviews by high, medium, or low severity, then narrow by issue type such as missing field, duplicate risk, unclear category, low confidence, asset snapshot, or source file.
 - Set a month like `2026-06` for many transactions without entering exact dates.
 - Correct two transactions from the same merchant separately.
 - Mark an exact duplicate as excluded from spending, or keep it as real spending when both rows are legitimate.
 - Resolve asset snapshot reviews by keeping the snapshot, ignoring the review, or correcting month, date, balance, account label, or balance type.
+- Resolve source file reviews by retrying failed processing, ignoring an unwanted source, marking it processed, or keeping it as an error.
 - Leave "apply to future similar merchants" unchecked when same-merchant transactions should stay different.
 
 If a bank activity row is extracted as `transfer` but is actually rent or another spending category, change the staged category to `rent` or another spending category before committing. Corrected transfer rows with explicit spending categories are included in spending analysis.
 
-Known gaps:
+Use the anomaly review panel on the dashboard when the assistant finds duplicate charges, spending spikes, balance drops, or missing-month checks. Duplicate charge cards show the related transaction rows and let you keep both rows or exclude one from spending analysis. Other anomaly cards can be marked reviewed or ignored. Decisions are written back to Sheets so later summary refreshes do not reopen ignored checks.
 
-- Duplicate anomalies show related records, but do not yet have one-click "keep both" or "mark duplicate" resolution.
-- Source document review items still need richer correction handling.
-- Full setup health checks for Drive, Sheets, and AI access are not yet available in the page.
-- Evidence text is shown for review cards, but source screenshot preview/navigation is still future work.
-
-These are now captured in the next implementation plan in [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md).
+Known gaps are captured in the next implementation plan in [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md).
 
 ## Useful API Endpoints
+
+Check setup health without processing screenshots:
+
+```bash
+curl http://localhost:3000/api/setup/health
+```
 
 Seed sanitized demo data:
 
@@ -316,7 +366,7 @@ Run the full Drive workflow:
 ```bash
 curl -X POST http://localhost:3000/api/workflow/run \
   -H "Content-Type: application/json" \
-  -d "{}"
+  -d '{"maxDocuments":5}'
 ```
 
 Force reprocess known Drive files:
@@ -347,6 +397,22 @@ Apply several corrections through the API:
 curl -X POST http://localhost:3000/api/corrections/batch \
   -H "Content-Type: application/json" \
   -d '{"corrections":[{"reviewItemId":"review-id-1","fieldName":"category","newValue":"utilities"},{"transactionId":"txn-id-2","fieldName":"observed_month","newValue":"2026-06"}]}'
+```
+
+Resolve or ignore an anomaly through the API:
+
+```bash
+curl -X POST http://localhost:3000/api/anomalies/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"anomalyId":"anomaly-id","decision":"ignored"}'
+```
+
+For duplicate-charge anomalies, exclude one related transaction from spending:
+
+```bash
+curl -X POST http://localhost:3000/api/anomalies/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"anomalyId":"anomaly-id","decision":"mark_duplicate","duplicateTransactionId":"txn-id"}'
 ```
 
 ## Troubleshooting
@@ -385,28 +451,62 @@ If `.env` changes do not apply:
 
 ## Verification
 
-Run these before submitting:
+Run this before submitting from your configured local environment:
 
 ```bash
+npm run verify
+```
+
+That command includes the private preflight check for your real `.env`, Drive folder, Google Sheet, service account, AI key, and single-user email. It then runs the same gates individually listed below:
+
+```bash
+sh scripts/preflight.sh
+sh scripts/privacy-check.sh
+sh scripts/package-check.sh
+sh scripts/docs-check.sh
 npm test
-npm run lint
 npx tsc --noEmit
+npm run lint
 npm run build
 ```
+
+For public repository CI, use:
+
+```bash
+npm run verify:ci
+```
+
+That CI-safe command skips private credential preflight, sets harmless placeholder environment values for build-time checks, and still runs privacy checks, docs checks, tests, type check, lint, and production build.
 
 If you are using the bundled Node runtime, prefix the commands with:
 
 ```bash
-export PATH="/Users/namkyounglee/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH"
+export PATH="/path/to/node/bin:$PATH"
 ```
 
 ## Repo Map
 
 - [AGENTS.md](AGENTS.md): agent instructions for this project.
+- [LICENSE](LICENSE): MIT license for public project reuse.
+- [SECURITY.md](SECURITY.md): security, privacy, data-handling, and reporting notes.
 - [docs/PRD.md](docs/PRD.md): product requirement document.
 - [docs/specs/001-mvp/requirements.md](docs/specs/001-mvp/requirements.md): MVP user stories and acceptance criteria.
 - [docs/specs/001-mvp/design.md](docs/specs/001-mvp/design.md): system design and agent architecture.
 - [docs/specs/001-mvp/data-model.md](docs/specs/001-mvp/data-model.md): Google Sheets tabs and structured entities.
 - [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md): completed MVP tasks plus the next implementation plan.
+- [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md): five-minute reviewer demo script and evaluation talking points.
+- [docs/CAPSTONE_READINESS_AUDIT.md](docs/CAPSTONE_READINESS_AUDIT.md): requirement-to-evidence submission audit.
+- [docs/SUBMISSION_PACKAGE_CHECKLIST.md](docs/SUBMISSION_PACKAGE_CHECKLIST.md): final include/exclude checklist before upload.
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): public project link and optional hosted demo guidance.
+- [docs/submission/KAGGLE_WRITEUP_DRAFT.md](docs/submission/KAGGLE_WRITEUP_DRAFT.md): paste-ready Kaggle Writeup draft.
+- [docs/submission/ARCHITECTURE_AND_RUBRIC.md](docs/submission/ARCHITECTURE_AND_RUBRIC.md): architecture and evaluation evidence map.
+- [docs/submission/KAGGLE_EVALUATION_SCORECARD.md](docs/submission/KAGGLE_EVALUATION_SCORECARD.md): point-by-point Kaggle evaluation mapping.
+- [docs/submission/USER_STORY_UI_REVIEW.md](docs/submission/USER_STORY_UI_REVIEW.md): MVP user-story trace, UI gap review, and demo shot checklist.
+- [docs/submission/COURSE_CONCEPT_COVERAGE.md](docs/submission/COURSE_CONCEPT_COVERAGE.md): required course-concept coverage and non-claims.
+- [docs/submission/VIDEO_SCRIPT.md](docs/submission/VIDEO_SCRIPT.md): five-minute YouTube demo script.
+- [docs/submission/MEDIA_GALLERY_PLAN.md](docs/submission/MEDIA_GALLERY_PLAN.md): cover image, screenshot, and privacy plan.
+- [docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md](docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md): submit-time Kaggle form checklist.
+- [docs/submission/PUBLIC_REPO_MANIFEST.md](docs/submission/PUBLIC_REPO_MANIFEST.md): public repository include/exclude manifest.
+- [docs/references/google-photos-picker-evaluation.md](docs/references/google-photos-picker-evaluation.md): Google Photos Picker evaluation and future extension plan.
 - [docs/MVP_SUBMISSION.md](docs/MVP_SUBMISSION.md): capstone submission notes.
 - [.env.example](.env.example): environment variable template.

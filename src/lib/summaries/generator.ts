@@ -1,9 +1,10 @@
-import type { AssetSnapshot, AssetTrend, MonthlySummary, QuarterlySummary, Transaction } from '../../types/domain';
-import { spendingAmount } from '../finance/spending';
+import type { AssetSnapshot, AssetTrend, CashFlowSummary, MonthlySummary, QuarterlySummary, Transaction } from '../../types/domain';
+import { spendingAmount, transferAmount } from '../finance/spending';
 
 export interface SummaryResult {
   monthlySummaries: MonthlySummary[];
   quarterlySummaries: QuarterlySummary[];
+  cashFlowSummaries: CashFlowSummary[];
   assetTrends: AssetTrend[];
 }
 
@@ -26,6 +27,24 @@ function summaryAmount(transaction: Transaction): number {
     return Math.abs(transaction.amount);
   }
   return 0;
+}
+
+function incomeAmount(transaction: Transaction): number {
+  return transaction.transaction_type === 'income' ? Math.abs(transaction.amount) : 0;
+}
+
+function refundAmount(transaction: Transaction): number {
+  return transaction.transaction_type === 'refund' ? Math.abs(transaction.amount) : 0;
+}
+
+function feeAmount(transaction: Transaction): number {
+  return transaction.transaction_type === 'fee' || transaction.category === 'fees' ? Math.abs(transaction.amount) : 0;
+}
+
+function unclassifiedPaymentAmount(transaction: Transaction): number {
+  if (transaction.transaction_type !== 'payment') return 0;
+  if (spendingAmount(transaction) > 0 || transferAmount(transaction) > 0) return 0;
+  return Math.abs(transaction.amount);
 }
 
 function isUsableTransaction(transaction: Transaction): boolean {
@@ -123,6 +142,49 @@ export function generateQuarterlySummaries(monthlySummaries: MonthlySummary[]): 
     .sort((a, b) => (a.quarter + a.category).localeCompare(b.quarter + b.category));
 }
 
+export function generateCashFlowSummaries(transactions: Transaction[]): CashFlowSummary[] {
+  const grouped = new Map<string, Omit<CashFlowSummary, 'net_cash_flow' | 'completeness_status'>>();
+
+  for (const transaction of transactions.filter(isUsableTransaction)) {
+    const month = transaction.observed_month;
+    const current = grouped.get(month) ?? {
+      month,
+      spending_total: 0,
+      income_total: 0,
+      refund_total: 0,
+      transfer_total: 0,
+      payment_total: 0,
+      fee_total: 0,
+      transaction_count: 0,
+      unresolved_count: 0,
+    };
+
+    current.spending_total += spendingAmount(transaction);
+    current.income_total += incomeAmount(transaction);
+    current.refund_total += refundAmount(transaction);
+    current.transfer_total += transferAmount(transaction);
+    current.payment_total += unclassifiedPaymentAmount(transaction);
+    current.fee_total += feeAmount(transaction);
+    current.transaction_count += 1;
+    if (transaction.review_status === 'pending' || transaction.validation_status === 'needs_review') current.unresolved_count += 1;
+    grouped.set(month, current);
+  }
+
+  return Array.from(grouped.values())
+    .map((row) => ({
+      ...row,
+      spending_total: Number(row.spending_total.toFixed(2)),
+      income_total: Number(row.income_total.toFixed(2)),
+      refund_total: Number(row.refund_total.toFixed(2)),
+      transfer_total: Number(row.transfer_total.toFixed(2)),
+      payment_total: Number(row.payment_total.toFixed(2)),
+      fee_total: Number(row.fee_total.toFixed(2)),
+      net_cash_flow: Number((row.income_total + row.refund_total - row.spending_total).toFixed(2)),
+      completeness_status: row.unresolved_count > 0 ? 'partial' : 'unknown',
+    }) satisfies CashFlowSummary)
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
 export function generateAssetTrends(assetSnapshots: AssetSnapshot[], transactions: Transaction[]): AssetTrend[] {
   const latestByAccountMonth = new Map<string, AssetSnapshot>();
 
@@ -178,6 +240,7 @@ export function generateSummaries(transactions: Transaction[], assetSnapshots: A
   return {
     monthlySummaries,
     quarterlySummaries: generateQuarterlySummaries(monthlySummaries),
+    cashFlowSummaries: generateCashFlowSummaries(transactions),
     assetTrends: generateAssetTrends(assetSnapshots, transactions),
   };
 }

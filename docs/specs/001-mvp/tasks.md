@@ -2,7 +2,7 @@
 
 Use these tasks as the source of truth for incremental implementation.
 
-Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred. Phase 11 is partially implemented, Phase 12 now includes batch transaction and asset snapshot review, Phase 13 is partially implemented for dashboard cash-flow separation and bank bill-payment spending, Phase 15 includes staged import review, and Phases 14 through 16 remain the next major assistant-grade UX work.
+Status: Phases 0 through 9 are implemented for the submitted Drive-first MVP. Phase 10 remains an optional Google Photos extension and is intentionally deferred. Phase 11 now includes force-reprocess guardrails and setup health checks, Phase 12 includes batch transaction and asset snapshot review, Phase 13 includes dashboard cash-flow separation, durable CashFlowSummary output, bank bill-payment spending, and sign-handling coverage, Phase 14 includes dashboard anomaly resolution, Phase 15 includes staged import review, source-file audit visibility, source evidence pages, optional screenshot-region highlighting, and a lightweight per-run file limit, Phase 16 includes preflight setup checks plus in-app setup checks, and Phase 17 includes action-oriented dashboard guidance.
 
 ## Phase 0: Project Foundation
 
@@ -142,10 +142,10 @@ Acceptance:
 
 ## Phase 10: Google Photos Optional Extension
 
-- [ ] Evaluate Google Photos Picker API for user-selected screenshots.
-- [ ] Add Photos source type without changing downstream data model.
+- [x] Evaluate Google Photos Picker API for user-selected screenshots.
+- [x] Add Photos source type without changing downstream data model.
 - [ ] Store processed media IDs or selection timestamps.
-- [ ] Document limitations clearly.
+- [x] Document limitations clearly.
 
 Acceptance:
 
@@ -160,8 +160,8 @@ The Drive-first MVP proves the backend workflow, but the next implementation sho
 
 - [x] Add visible dashboard actions for running the full workflow, refreshing summaries, seeding demo data, and force reprocessing.
 - [x] Show clear run status, latest run timestamp, files seen, files processed, errors, and next recommended action.
-- [ ] Add guardrails for force reprocess so the user understands it reruns already-known Drive files.
-- [ ] Show setup health checks for Drive folder access, Sheet access, AI key presence, and configured user email.
+- [x] Add guardrails for force reprocess so the user understands it reruns already-known Drive files.
+- [x] Show setup health checks for Drive folder access, Sheet access, AI key presence, and configured user email.
 
 Acceptance:
 
@@ -182,9 +182,9 @@ Acceptance:
 - [x] Keep the Spending Analysis dashboard focused on summary insights and route correction work to the dedicated review page.
 - [x] Add severity filters and collapsible severity groups so users can focus on high, medium, or low priority corrections.
 - [x] Add asset snapshot review controls for keeping, ignoring, or correcting balance snapshot reviews.
-- [ ] Add filters for missing date, missing amount, duplicate risk, unclear category, low confidence, and asset snapshot review.
+- [x] Add filters for missing date, missing amount, duplicate risk, unclear category, low confidence, asset snapshot review, and source-document review.
 - [x] Rank and group reviews by severity.
-- [ ] Rank reviews by dollar amount and downstream summary impact.
+- [x] Rank reviews by dollar amount and downstream summary impact.
 
 Acceptance:
 
@@ -194,7 +194,7 @@ Acceptance:
 
 ## Phase 13: Spending, Earnings, and Cash Flow Separation
 
-- [ ] Add explicit summary outputs for spending, income, refunds, transfers, payments, and fees.
+- [x] Add explicit summary outputs for spending, income, refunds, transfers, payments, and fees.
 - [x] Update summary generation so income is not shown as a zero-dollar spending category.
 - [x] Add dashboard metrics for monthly spend, monthly income, net cash flow, transfers/payments, and unresolved amount.
 - [x] Add transaction type correction support for expense, income, transfer, payment, fee, refund, and unknown.
@@ -203,7 +203,7 @@ Acceptance:
 - [x] Add a monthly category pie chart with clickable categories and filtered transaction rows.
 - [x] Add a filterable spending summary table for month and category analysis.
 - [x] Add inline Spending Explorer controls to correct a transaction category or remove a row from spending analysis.
-- [ ] Add tests for sign handling across credit card charges, refunds, payments, bank deposits, bank withdrawals, and transfers.
+- [x] Add tests for sign handling across credit card charges, refunds, payments, bank deposits, bank withdrawals, and transfers.
 
 Acceptance:
 
@@ -213,11 +213,11 @@ Acceptance:
 
 ## Phase 14: Anomaly Resolution Workflow
 
-- [ ] Show related transaction or asset records inside each anomaly card.
-- [ ] For duplicate charge anomalies, display the two records side by side with date, merchant, amount, source, and evidence.
+- [x] Show related transaction or asset records inside each anomaly card.
+- [x] For duplicate charge anomalies, display the two records side by side with date, merchant, amount, source, and evidence.
 - [x] Add transaction-level actions for "keep as real spending", "mark duplicate", and "needs more review".
-- [ ] Add an anomaly status update endpoint or extend the correction workflow to resolve anomalies.
-- [ ] Preserve an audit trail for anomaly decisions in Sheets.
+- [x] Add an anomaly status update endpoint or extend the correction workflow to resolve anomalies.
+- [x] Preserve an audit trail for anomaly decisions in Sheets.
 
 Acceptance:
 
@@ -235,11 +235,14 @@ Note: exact same-merchant, same-date, same-amount duplicate risks now default th
 - [x] Group staged import rows by source snapshot.
 - [x] Let users type custom categories during staged import review.
 - [x] Add category dropdown choices to staged import review so common categories do not need manual typing.
-- [ ] Show which Drive files were processed in the latest run.
-- [ ] Add guidance that file selection is folder-based: put only desired screenshots in the configured Drive folder.
-- [ ] Add a page section for unprocessed, errored, and unsupported files.
+- [x] Let users exclude staged source snapshots before committing reviewed rows to Google Sheets.
+- [x] Show recent Drive files with processing status and masked messages in the dashboard source audit.
+- [x] Link source files, review items, and anomaly records to a source evidence page with metadata, linked extracted rows, open follow-ups, cached local screenshot preview when available, and Drive file handoff.
+- [x] Add guidance that file selection is folder-based: put only desired screenshots in the configured Drive folder.
+- [x] Add a page section for unprocessed, errored, and unsupported files.
 - [x] Surface evidence text for extracted rows and review items.
-- [ ] Consider a lightweight file selection layer before processing if the Drive folder contains many screenshots.
+- [x] Add exact screenshot-region highlighting when extraction returns coordinate hints.
+- [x] Consider a lightweight file selection layer before processing if the Drive folder contains many screenshots.
 
 Acceptance:
 
@@ -249,14 +252,30 @@ Acceptance:
 
 ## Phase 16: First-Time Setup Experience
 
-- [ ] Add an in-app setup checklist for `.env`, Drive folder, Google Sheet, service account sharing, AI key, and selected model.
-- [ ] Show helpful messages for missing Node/npm, missing `.env`, missing API keys, wrong email query parameter, or missing Google sharing.
-- [ ] Add a "test connections" endpoint that validates Drive, Sheets, and AI credentials without processing screenshots.
-- [ ] Add a "try sample data" button on empty dashboards.
-- [ ] Keep the README aligned with this guided setup flow.
+- [x] Add an in-app setup checklist for `.env`, Drive folder, Google Sheet, service account sharing, AI key, and selected model.
+- [x] Show helpful messages for missing Node/npm before app startup.
+- [x] Show helpful messages for missing `.env`, missing API keys, wrong email query parameter, or missing Google sharing.
+- [x] Add a "test connections" endpoint that validates Drive, Sheets, and AI credentials without processing screenshots.
+- [x] Add a "try sample data" button on empty dashboards.
+- [x] Show a review-only dashboard safety note that the app is not financial advice and cannot move money.
+- [x] Mask emails, long account-like numbers, and secret-shaped values in API-visible error details.
+- [x] Keep the README aligned with this guided setup flow.
 
 Acceptance:
 
 - A first-time user can get from clone to demo without reading implementation docs.
 - Setup failures explain the exact missing piece and where to get it.
 - Empty Drive folders and empty Sheets are treated as normal first-run states, not confusing errors.
+
+## Phase 17: Action-Oriented Dashboard Guidance
+
+- [x] Add a tested dashboard insight generator that reads source files, reviews, anomalies, cash flow, and asset trends.
+- [x] Prioritize failed source files, pending decisions, open anomalies, negative latest cash flow, and balance pressure.
+- [x] Link each generated insight to the relevant dashboard, review, or evidence workflow.
+- [x] Show an all-clear or first-run action when no urgent follow-up exists.
+
+Acceptance:
+
+- The dashboard tells the user what to do next instead of only showing charts.
+- Insight ordering is deterministic and covered by unit tests.
+- The guidance stays grounded in generated Sheet rows and does not provide financial advice.

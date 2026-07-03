@@ -2,7 +2,7 @@
 
 Use these prompts one at a time. After each prompt, verify the acceptance criteria in `docs/specs/001-mvp/tasks.md` before moving on.
 
-Status: Prompts 1 through 10 correspond to the implemented Drive-first MVP. Prompt 11 is partially implemented: workflow actions, staged import review, batch corrections, asset snapshot review handling, Spending Explorer cleanup, and spending/income separation are now in place. Remaining assistant-grade UX work includes setup health checks, richer source evidence, and anomaly resolution.
+Status: Prompts 1 through 10 correspond to the implemented Drive-first MVP. Prompt 11 is partially implemented: workflow actions, setup health checks, staged import review, batch corrections, asset snapshot review handling, source-document review handling, anomaly resolution, source-file audit visibility, source evidence pages with optional screenshot-region highlighting, CashFlowSummary output, Spending Explorer cleanup, and spending/income separation are now in place.
 
 ## Prompt 1: Scaffold the App
 

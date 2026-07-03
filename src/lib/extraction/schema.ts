@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 const confidenceSchema = z.coerce.number().min(0).max(1).default(0.5);
+const evidenceRegionSchema = z.object({
+  x: z.coerce.number().min(0).max(1),
+  y: z.coerce.number().min(0).max(1),
+  width: z.coerce.number().min(0).max(1),
+  height: z.coerce.number().min(0).max(1),
+});
 
 export const extractedTransactionCandidateSchema = z.object({
   row_index: z.coerce.number().int().nonnegative(),
@@ -11,6 +17,7 @@ export const extractedTransactionCandidateSchema = z.object({
   transaction_type_hint: z.enum(['expense', 'income', 'transfer', 'payment', 'fee', 'refund', 'unknown']).default('unknown'),
   confidence: confidenceSchema,
   evidence_text: z.string().min(1),
+  evidence_region: evidenceRegionSchema.nullable().optional(),
 });
 
 export const extractedAssetSnapshotCandidateSchema = z.object({
@@ -21,6 +28,7 @@ export const extractedAssetSnapshotCandidateSchema = z.object({
   observed_date_text: z.string().nullable().default(null),
   confidence: confidenceSchema,
   evidence_text: z.string().min(1),
+  evidence_region: evidenceRegionSchema.nullable().optional(),
 });
 
 export const screenshotExtractionResultSchema = z.object({

@@ -28,11 +28,11 @@ export function isCardPayment(transaction: Pick<Transaction, 'merchant_normalize
 
 export function spendingAmount(transaction: Pick<Transaction, 'amount' | 'transaction_type' | 'category' | 'merchant_normalized' | 'merchant_raw' | 'evidence_text'>): number {
   if (isCardPayment(transaction)) return 0;
+  if (transaction.transaction_type === 'income' || transaction.transaction_type === 'refund') return 0;
   if (EXPLICIT_SPENDING_CATEGORIES.has(transaction.category)) return Math.abs(transaction.amount);
   if (
     transaction.transaction_type !== 'expense' &&
-    transaction.transaction_type !== 'fee' &&
-    !(transaction.transaction_type === 'payment' && transaction.category !== 'transfer')
+    transaction.transaction_type !== 'fee'
   ) {
     return 0;
   }
@@ -40,7 +40,9 @@ export function spendingAmount(transaction: Pick<Transaction, 'amount' | 'transa
 }
 
 export function transferAmount(transaction: Pick<Transaction, 'amount' | 'transaction_type' | 'category' | 'merchant_normalized' | 'merchant_raw' | 'evidence_text'>): number {
-  if (transaction.transaction_type === 'transfer' || isCardPayment(transaction)) return Math.abs(transaction.amount);
+  if (isCardPayment(transaction)) return Math.abs(transaction.amount);
+  if (EXPLICIT_SPENDING_CATEGORIES.has(transaction.category)) return 0;
+  if (transaction.transaction_type === 'transfer') return Math.abs(transaction.amount);
   if (transaction.transaction_type === 'payment' && transaction.category === 'transfer') return Math.abs(transaction.amount);
   return 0;
 }

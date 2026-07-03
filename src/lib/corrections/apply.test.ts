@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyBatchCorrections, applyReviewCorrection } from './apply';
-import type { AssetSnapshot, ReviewItem, Transaction } from '../../types/domain';
+import type { AssetSnapshot, ReviewItem, SourceDocument, Transaction } from '../../types/domain';
 
 const mocks = vi.hoisted(() => ({
   initializeSpreadsheet: vi.fn(),
@@ -95,6 +95,32 @@ const assetReview: ReviewItem = {
   resolved_at: null,
 };
 
+const sourceDocument: SourceDocument = {
+  source_document_id: 'source-1',
+  source_type: 'drive',
+  file_name: 'june-card.png',
+  mime_type: 'image/png',
+  created_time: '2026-06-29T10:00:00Z',
+  modified_time: '2026-06-29T10:00:00Z',
+  processed_at: '2026-06-29T10:00:00Z',
+  status: 'error',
+  error_summary: 'Processing failed.',
+};
+
+const sourceReview: ReviewItem = {
+  review_item_id: 'review-source-1',
+  target_type: 'source_document',
+  target_id: 'source-1',
+  issue_type: 'anomaly',
+  severity: 'high',
+  question: 'This source failed processing. Retry it?',
+  suggested_options: ['pending', 'skipped'],
+  status: 'pending',
+  user_answer: null,
+  created_at: '2026-06-29T10:00:00Z',
+  resolved_at: null,
+};
+
 describe('applyReviewCorrection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -106,6 +132,7 @@ describe('applyReviewCorrection', () => {
     mocks.readRows
       .mockResolvedValueOnce([review])
       .mockResolvedValueOnce([transaction])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     mocks.upsertRows.mockResolvedValue(undefined);
     mocks.refreshSummaryTabs.mockResolvedValue({
@@ -196,6 +223,7 @@ describe('applyReviewCorrection', () => {
     mocks.readRows
       .mockResolvedValueOnce([review, secondReview])
       .mockResolvedValueOnce([transaction, secondTransaction])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
     const result = await applyBatchCorrections({
@@ -265,7 +293,8 @@ describe('applyReviewCorrection', () => {
     mocks.readRows
       .mockResolvedValueOnce([assetReview])
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([assetSnapshot]);
+      .mockResolvedValueOnce([assetSnapshot])
+      .mockResolvedValueOnce([]);
 
     const result = await applyBatchCorrections({
       corrections: [
@@ -295,7 +324,8 @@ describe('applyReviewCorrection', () => {
     mocks.readRows
       .mockResolvedValueOnce([assetReview])
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([assetSnapshot]);
+      .mockResolvedValueOnce([assetSnapshot])
+      .mockResolvedValueOnce([]);
 
     const result = await applyBatchCorrections({
       corrections: [
@@ -316,6 +346,37 @@ describe('applyReviewCorrection', () => {
       'Corrections',
       'correction_id',
       [expect.objectContaining({ target_type: 'asset_snapshot', field_name: 'balance', old_value: '1234.56', new_value: '987.65' })]
+    );
+  });
+
+  it('updates a source document review so failed files can be retried from the review page', async () => {
+    mocks.readRows.mockReset();
+    mocks.readRows
+      .mockResolvedValueOnce([sourceReview])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([sourceDocument]);
+
+    const result = await applyBatchCorrections({
+      corrections: [
+        { reviewItemId: 'review-source-1', fieldName: 'source_status', newValue: 'pending' },
+      ],
+      now: '2026-06-29T11:00:00Z',
+    });
+
+    expect(result.sourceDocumentsUpdated).toBe(1);
+    expect(result.reviewsResolved).toBe(1);
+    expect(mocks.upsertRows).toHaveBeenCalledWith(
+      'sheet-123',
+      'SourceDocuments',
+      'source_document_id',
+      [expect.objectContaining({ source_document_id: 'source-1', status: 'pending', error_summary: null })]
+    );
+    expect(mocks.upsertRows).toHaveBeenCalledWith(
+      'sheet-123',
+      'Corrections',
+      'correction_id',
+      [expect.objectContaining({ target_type: 'source_document', field_name: 'source_status', old_value: 'error', new_value: 'pending' })]
     );
   });
 });

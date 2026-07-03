@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { Env } from '../env';
 import type { Correction, ReviewItem, Transaction } from '../../types/domain';
+import { configuredAiModel } from '../ai/defaults';
 import { isCardPayment } from '../finance/spending';
 
 export type SpendingCategory =
@@ -364,10 +365,10 @@ class GeminiCategoryClassifier implements CategoryClassifier {
 
 export function createCategoryClassifier(env: Env): CategoryClassifier | null {
   if (env.AI_PROVIDER === 'openai') {
-    return new OpenAICategoryClassifier(env.AI_API_KEY, env.AI_MODEL || 'gpt-4.1-mini');
+    return new OpenAICategoryClassifier(env.AI_API_KEY, configuredAiModel(env));
   }
   if (env.AI_PROVIDER === 'gemini') {
-    return new GeminiCategoryClassifier(env.AI_API_KEY, env.AI_MODEL || 'gemini-1.5-flash');
+    return new GeminiCategoryClassifier(env.AI_API_KEY, configuredAiModel(env));
   }
   return null;
 }

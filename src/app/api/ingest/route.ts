@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runIngestion } from '../../../lib/orchestrator/ingest';
+import { safeErrorDetail } from '../../../lib/privacy/redact';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Ingestion run failed',
-        detail: error instanceof Error ? error.message : 'Unknown error',
+        detail: safeErrorDetail(error),
       },
       { status: 500 }
     );

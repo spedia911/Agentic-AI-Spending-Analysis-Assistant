@@ -26,6 +26,7 @@ export interface Transaction {
   validation_status: 'valid' | 'needs_review' | 'rejected';
   review_status: 'none' | 'pending' | 'resolved';
   evidence_text: string; // OCR text snippet for verification
+  evidence_region?: string | null; // Optional JSON bounding box for screenshot highlighting
   created_at: string; // ISO DateTime string
   updated_at: string; // ISO DateTime string
 }
@@ -40,6 +41,7 @@ export interface AssetSnapshot {
   balance_type: 'checking' | 'savings' | 'credit_available' | 'credit_balance' | 'unknown';
   confidence: number; // 0.0 to 1.0
   evidence_text: string; // Snippet of text containing the balance
+  evidence_region?: string | null; // Optional JSON bounding box for screenshot highlighting
   created_at: string; // ISO DateTime string
 }
 
@@ -59,7 +61,7 @@ export interface ReviewItem {
 
 export interface Correction {
   correction_id: string; // Stable ID
-  target_type: 'transaction' | 'merchant_rule' | 'asset_snapshot';
+  target_type: 'transaction' | 'merchant_rule' | 'asset_snapshot' | 'anomaly' | 'source_document';
   target_id: string; // Linked ID
   field_name:
     | 'category'
@@ -73,7 +75,9 @@ export interface Correction {
     | 'balance'
     | 'balance_type'
     | 'observed_date'
-    | 'review_status';
+    | 'review_status'
+    | 'anomaly_status'
+    | 'source_status';
   old_value: string;
   new_value: string;
   apply_future: boolean; // True if should map similar merchants automatically in the future
@@ -97,6 +101,20 @@ export interface QuarterlySummary {
   total_amount: number;
   transaction_count: number;
   quarter_over_quarter_delta: number | null;
+  completeness_status: 'complete' | 'partial' | 'unknown';
+}
+
+export interface CashFlowSummary {
+  month: string; // YYYY-MM
+  spending_total: number; // Expense-like outflow used for spending analysis
+  income_total: number; // Income/deposit inflow
+  refund_total: number; // Refund/credit inflow
+  transfer_total: number; // Internal transfers and credit card payments
+  payment_total: number; // Payment rows that are not yet classified as spending or transfer
+  fee_total: number; // Fees included in spending but called out separately
+  net_cash_flow: number; // income + refunds - spending
+  transaction_count: number;
+  unresolved_count: number;
   completeness_status: 'complete' | 'partial' | 'unknown';
 }
 

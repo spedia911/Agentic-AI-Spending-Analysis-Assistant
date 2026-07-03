@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Agentic AI Spending Analysis Assistant</title>
+  <desc id="desc">A workflow diagram showing Drive screenshots flowing through AI extraction, human review, Google Sheets, and dashboard insights.</desc>
+  <rect width="1600" height="900" fill="#f6f7f9"/>
+  <rect x="92" y="82" width="1416" height="736" rx="28" fill="#ffffff" stroke="#d9dee7" stroke-width="3"/>
+  <text x="140" y="160" fill="#18202a" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">Agentic AI Spending Analysis Assistant</text>
+  <text x="142" y="212" fill="#667085" font-family="Arial, Helvetica, sans-serif" font-size="26">Private screenshot ingestion, auditable Sheets, human review, and next-best actions</text>
+
+  <g transform="translate(150 315)">
+    <rect width="230" height="150" rx="18" fill="#eef2f6" stroke="#cbd5e1" stroke-width="3"/>
+    <text x="34" y="55" fill="#18202a" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Drive</text>
+    <text x="34" y="93" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">Financial</text>
+    <text x="34" y="122" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">screenshots</text>
+  </g>
+
+  <g transform="translate(470 315)">
+    <rect width="230" height="150" rx="18" fill="#ecfdf3" stroke="#9ad4b5" stroke-width="3"/>
+    <text x="32" y="55" fill="#18202a" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">AI Agents</text>
+    <text x="32" y="93" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">Extract, validate,</text>
+    <text x="32" y="122" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">categorize</text>
+  </g>
+
+  <g transform="translate(790 315)">
+    <rect width="230" height="150" rx="18" fill="#fffaeb" stroke="#f2c94c" stroke-width="3"/>
+    <text x="30" y="55" fill="#18202a" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Review</text>
+    <text x="30" y="93" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">Approve, correct,</text>
+    <text x="30" y="122" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">or exclude</text>
+  </g>
+
+  <g transform="translate(1110 315)">
+    <rect width="230" height="150" rx="18" fill="#eff6ff" stroke="#93b4f5" stroke-width="3"/>
+    <text x="30" y="55" fill="#18202a" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Sheets</text>
+    <text x="30" y="93" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">Durable rows</text>
+    <text x="30" y="122" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="21">and summaries</text>
+  </g>
+
+  <g fill="none" stroke="#475467" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M395 390h52"/>
+    <path d="M435 374l18 16-18 16"/>
+    <path d="M715 390h52"/>
+    <path d="M755 374l18 16-18 16"/>
+    <path d="M1035 390h52"/>
+    <path d="M1075 374l18 16-18 16"/>
+  </g>
+
+  <rect x="220" y="560" width="1160" height="120" rx="18" fill="#18202a"/>
+  <text x="265" y="612" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Dashboard output</text>
+  <text x="265" y="652" fill="#d0d5dd" font-family="Arial, Helvetica, sans-serif" font-size="24">Spending, cash flow, asset trends, anomaly decisions, source evidence, and next-best actions</text>
+
+  <g transform="translate(143 724)">
+    <rect width="328" height="48" rx="10" fill="#f8fafc" stroke="#d9dee7"/>
+    <text x="20" y="31" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="20">Single-user and private by default</text>
+  </g>
+  <g transform="translate(502 724)">
+    <rect width="286" height="48" rx="10" fill="#f8fafc" stroke="#d9dee7"/>
+    <text x="20" y="31" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="20">Rerunnable workflow</text>
+  </g>
+  <g transform="translate(820 724)">
+    <rect width="284" height="48" rx="10" fill="#f8fafc" stroke="#d9dee7"/>
+    <text x="20" y="31" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="20">Human-in-the-loop</text>
+  </g>
+  <g transform="translate(1136 724)">
+    <rect width="296" height="48" rx="10" fill="#f8fafc" stroke="#d9dee7"/>
+    <text x="20" y="31" fill="#344054" font-family="Arial, Helvetica, sans-serif" font-size="20">Verified submission gates</text>
+  </g>
+</svg>

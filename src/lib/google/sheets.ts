@@ -6,6 +6,7 @@ import type {
   Anomaly,
   AssetSnapshot,
   AssetTrend,
+  CashFlowSummary,
   Correction,
   MonthlySummary,
   QuarterlySummary,
@@ -43,6 +44,7 @@ export const SHEET_SCHEMAS = {
     'validation_status',
     'review_status',
     'evidence_text',
+    'evidence_region',
     'created_at',
     'updated_at',
   ],
@@ -56,6 +58,7 @@ export const SHEET_SCHEMAS = {
     'balance_type',
     'confidence',
     'evidence_text',
+    'evidence_region',
     'created_at',
   ],
   ReviewQueue: [
@@ -97,6 +100,19 @@ export const SHEET_SCHEMAS = {
     'total_amount',
     'transaction_count',
     'quarter_over_quarter_delta',
+    'completeness_status',
+  ],
+  CashFlowSummary: [
+    'month',
+    'spending_total',
+    'income_total',
+    'refund_total',
+    'transfer_total',
+    'payment_total',
+    'fee_total',
+    'net_cash_flow',
+    'transaction_count',
+    'unresolved_count',
     'completeness_status',
   ],
   AssetTrends: [
@@ -143,6 +159,7 @@ export interface SheetRowsByTab {
   Corrections: Correction;
   MonthlySummary: MonthlySummary;
   QuarterlySummary: QuarterlySummary;
+  CashFlowSummary: CashFlowSummary;
   AssetTrends: AssetTrend;
   Anomalies: Anomaly;
   Runs: RunState;
@@ -156,6 +173,7 @@ const DEFAULT_KEY_COLUMNS = {
   Corrections: 'correction_id',
   MonthlySummary: 'month',
   QuarterlySummary: 'quarter',
+  CashFlowSummary: 'month',
   AssetTrends: 'month',
   Anomalies: 'anomaly_id',
   Runs: 'run_id',
@@ -173,6 +191,13 @@ const NUMBER_COLUMNS = new Set([
   'prior_month_balance',
   'monthly_change',
   'related_spending_total',
+  'spending_total',
+  'income_total',
+  'refund_total',
+  'transfer_total',
+  'payment_total',
+  'fee_total',
+  'net_cash_flow',
   'total_amount',
   'transaction_count',
   'reviewed_count',

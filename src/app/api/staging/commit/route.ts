@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { commitSnapshotReviewStage } from '../../../../lib/staging/snapshot-review';
+import { safeErrorDetail } from '../../../../lib/privacy/redact';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Snapshot review commit failed',
-        detail: error instanceof Error ? error.message : 'Unknown error',
+        detail: safeErrorDetail(error),
       },
       { status: 500 }
     );

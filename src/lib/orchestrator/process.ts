@@ -1,4 +1,3 @@
-import path from 'path';
 import fs from 'fs/promises';
 import { getEnv } from '../env';
 import { createVisionModelAdapter, extractScreenshot, type ExtractionPromptMode, type VisionModelAdapter } from '../extraction';
@@ -6,7 +5,11 @@ import { categorizeTransactionsWithFallback, createCategoryClassifier } from '..
 import { normalizeExtractionCandidates } from '../normalization';
 import { validateTransactions } from '../validation';
 import { initializeSpreadsheet, readRows, upsertRows } from '../google/sheets';
+import { maskSensitiveText } from '../privacy/redact';
+import { sourceDocumentCachePath } from '../source-evidence/cache';
 import type { AssetSnapshot, Correction, ReviewItem, SourceDocument, Transaction } from '../../types/domain';
+
+export { sourceDocumentCachePath } from '../source-evidence/cache';
 
 export interface ProcessPendingOptions {
   forceReprocess?: boolean;
@@ -23,18 +26,6 @@ export interface ProcessPendingResult {
   transactionsWritten: number;
   assetSnapshotsWritten: number;
   reviewItemsWritten: number;
-}
-
-function maskSensitiveText(value: string): string {
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
-    .replace(/\b\d{5,}\b/g, '[number]')
-    .slice(0, 240);
-}
-
-export function sourceDocumentCachePath(source: SourceDocument, localCacheDir = path.join(process.cwd(), 'data', 'private')): string {
-  const sanitizedName = source.file_name.replace(/[^a-zA-Z0-9.-]/g, '_');
-  return path.join(localCacheDir, source.source_document_id + '-' + sanitizedName);
 }
 
 export function inferExtractionMode(source: Pick<SourceDocument, 'file_name'>): ExtractionPromptMode {

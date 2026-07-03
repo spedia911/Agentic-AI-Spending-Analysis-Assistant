@@ -1,5 +1,8 @@
+import Link from 'next/link';
 import { getEnv } from '../lib/env';
-import { canViewDashboard, loadDashboardData } from '../lib/dashboard';
+import { buildDashboardInsights, canViewDashboard, loadDashboardData } from '../lib/dashboard';
+import { safeErrorDetail } from '../lib/privacy/redact';
+import AnomalyCenter from './anomaly-center';
 import DashboardActions from './dashboard-actions';
 import SpendingExplorer, { type SpendingExplorerRow } from './spending-explorer';
 import styles from './page.module.css';
@@ -51,7 +54,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
         <section className={styles.accessPanel}>
           <h1>Spending Analysis</h1>
           <p>Enter the configured user email as a query parameter to view the dashboard.</p>
-          <code>?email={env.SINGLE_USER_EMAIL}</code>
+          <code>?email=your_configured_email@example.com</code>
         </section>
       </main>
     );
@@ -67,7 +70,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
           <p className={styles.eyebrow}>Dashboard unavailable</p>
           <h1>Spending Analysis</h1>
           <p>Unable to read the configured Google Sheet. Check the environment settings and Google access, then refresh the page.</p>
-          <code>{error instanceof Error ? error.message : 'Unknown dashboard error'}</code>
+          <code>{safeErrorDetail(error, 'Unknown dashboard error')}</code>
         </section>
       </main>
     );
@@ -75,6 +78,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
 
   const latestMonths = [...data.monthlySummaries].sort((a, b) => safeText(b.month, '').localeCompare(safeText(a.month, ''))).slice(0, 8);
   const latestQuarters = [...data.quarterlySummaries].sort((a, b) => safeText(b.quarter, '').localeCompare(safeText(a.quarter, ''))).slice(0, 8);
+  const latestCashFlow = [...data.cashFlowSummaries].sort((a, b) => safeText(b.month, '').localeCompare(safeText(a.month, ''))).slice(0, 8);
   const latestAssets = [...data.assetTrends].sort((a, b) => safeText(b.month, '').localeCompare(safeText(a.month, ''))).slice(0, 8);
   const latestRun = [...data.runs].sort((a, b) => safeText(b.started_at, '').localeCompare(safeText(a.started_at, '')))[0];
   const latestMonth =
@@ -88,8 +92,20 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
   const currentMonthSpend = Number(currentTransactions.reduce((sum, transaction) => sum + moneyOut(transaction), 0).toFixed(2));
   const currentMonthIncome = Number(currentTransactions.reduce((sum, transaction) => sum + moneyIn(transaction), 0).toFixed(2));
   const currentMonthTransfers = Number(currentTransactions.reduce((sum, transaction) => sum + transferAmount(transaction), 0).toFixed(2));
+  const currentMonthUnresolved = Number(
+    currentTransactions
+      .filter((transaction) => transaction.review_status === 'pending' || transaction.validation_status === 'needs_review')
+      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
+      .toFixed(2)
+  );
   const netCashFlow = Number((currentMonthIncome - currentMonthSpend).toFixed(2));
   const sourceStatusRows = statusCounts(data.sourceDocuments.map((source) => source.status));
+  const latestSources = [...data.sourceDocuments]
+    .sort((a, b) =>
+      safeText(b.processed_at ?? b.modified_time ?? b.created_time, '').localeCompare(safeText(a.processed_at ?? a.modified_time ?? a.created_time, ''))
+    )
+    .slice(0, 8);
+  const insights = buildDashboardInsights(data, env.SINGLE_USER_EMAIL);
 
   const concernCount = data.assetTrends.filter((row) => row.maintainability_flag === 'concern').length;
   const spendingRows: SpendingExplorerRow[] = data.transactions
@@ -150,6 +166,14 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
         reviewHref={'/review?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}
       />
 
+      <section className={styles.safetyNotice}>
+        <strong>Review-only assistant</strong>
+        <p>
+          This dashboard helps reconcile screenshots against Sheets. It is not financial advice, does not initiate payments, and does not move money.
+          Verify source evidence before relying on a correction or anomaly decision.
+        </p>
+      </section>
+
       <section className={styles.metrics}>
         <div className={styles.metric}>
           <span>{latestMonth ?? 'Current'} Spend</span>
@@ -171,8 +195,8 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
 
       <section className={styles.metrics}>
         <div className={styles.metric}>
-          <span>Spending Rows</span>
-          <strong>{spendingRows.length}</strong>
+          <span>Unresolved Amount</span>
+          <strong>{currency(currentMonthUnresolved)}</strong>
         </div>
         <div className={styles.metric}>
           <span>Processed Files</span>
@@ -183,12 +207,36 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
           <strong>{concernCount}</strong>
         </div>
         <div className={styles.metric}>
-          <span>Source Statuses</span>
-          <strong>{sourceStatusRows.length}</strong>
+          <span>Open Anomalies</span>
+          <strong>{data.anomalies.length}</strong>
         </div>
       </section>
 
-      <section className={styles.panel}>
+      <section className={styles.panel} id="next-best-actions">
+        <div className={styles.sectionHeader}>
+          <div>
+            <p className={styles.eyebrow}>Action-oriented summary</p>
+            <h2>Next best actions</h2>
+          </div>
+          <span>{insights.length} signals</span>
+        </div>
+        <div className={styles.insightList}>
+          {insights.map((insight) => (
+            <article className={styles.insightItem} data-priority={insight.priority} key={insight.insight_id}>
+              <div>
+                <span>{insight.priority}</span>
+                <h3>{insight.title}</h3>
+                <p>{insight.detail}</p>
+              </div>
+              <Link className={styles.secondaryLink} href={insight.action_href}>
+                {insight.action_label}
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.panel} id="source-file-audit">
         <div className={styles.sectionHeader}>
           <div>
             <p className={styles.eyebrow}>Run and source health</p>
@@ -222,6 +270,43 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
         {latestRun?.error_summary ? <p className={styles.mutedText}>{latestRun.error_summary}</p> : null}
       </section>
 
+      <AnomalyCenter
+        anomalies={data.anomalies}
+        assetTrends={data.assetTrends}
+        sourceDocuments={data.sourceDocuments}
+        transactions={data.transactions}
+        userEmail={env.SINGLE_USER_EMAIL}
+      />
+
+      <section className={styles.panel}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <p className={styles.eyebrow}>Source file audit</p>
+            <h2>Recent Drive files</h2>
+            <p className={styles.mutedText}>The workflow analyzes files in the configured Drive folder. Keep only the screenshots you want reviewed in that folder.</p>
+          </div>
+          <span>{data.sourceDocuments.length} tracked</span>
+        </div>
+        <table className={styles.dataTable}>
+          <thead><tr><th>File</th><th>Status</th><th>Processed</th><th>Modified</th><th>Message</th></tr></thead>
+          <tbody>
+            {latestSources.length === 0 ? <tr><td colSpan={5}>No source files registered yet.</td></tr> : latestSources.map((source) => (
+              <tr key={source.source_document_id}>
+                <td>
+                  <Link className={styles.tableLink} href={'/source/' + encodeURIComponent(source.source_document_id) + '?email=' + encodeURIComponent(env.SINGLE_USER_EMAIL)}>
+                    {source.file_name}
+                  </Link>
+                </td>
+                <td>{source.status}</td>
+                <td>{safeText(source.processed_at, '-')}</td>
+                <td>{safeText(source.modified_time, '-')}</td>
+                <td>{safeText(source.error_summary, '-')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
       <SpendingExplorer defaultMonth={latestMonth} rows={spendingRows} />
 
       <section className={styles.gridTwo}>
@@ -250,6 +335,34 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
             ))}
           </div>
         </div>
+      </section>
+
+      <section className={styles.panel} id="asset-trends">
+        <div className={styles.sectionHeader}>
+          <div>
+            <p className={styles.eyebrow}>Generated cash-flow output</p>
+            <h2>Monthly money movement</h2>
+          </div>
+          <span>{latestCashFlow.length} months</span>
+        </div>
+        <table className={styles.dataTable}>
+          <thead><tr><th>Month</th><th>Spending</th><th>Income</th><th>Refunds</th><th>Transfers/Card Payments</th><th>Other Payments</th><th>Fees</th><th>Net</th><th>Status</th></tr></thead>
+          <tbody>
+            {latestCashFlow.length === 0 ? <tr><td colSpan={9}>No cash-flow summary rows yet. Refresh summaries after processing transactions.</td></tr> : latestCashFlow.map((row) => (
+              <tr key={row.month}>
+                <td>{row.month}</td>
+                <td>{currency(row.spending_total)}</td>
+                <td>{currency(row.income_total)}</td>
+                <td>{currency(row.refund_total)}</td>
+                <td>{currency(row.transfer_total)}</td>
+                <td>{currency(row.payment_total)}</td>
+                <td>{currency(row.fee_total)}</td>
+                <td>{currency(row.net_cash_flow)}</td>
+                <td>{row.completeness_status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       <section className={styles.panel}>

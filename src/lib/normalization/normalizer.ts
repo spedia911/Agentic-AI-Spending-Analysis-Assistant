@@ -109,6 +109,16 @@ function createReviewItem(targetId: string, issueType: ReviewItem['issue_type'],
   };
 }
 
+function serializeEvidenceRegion(region: ExtractedTransactionCandidate['evidence_region'] | ExtractedAssetSnapshotCandidate['evidence_region']): string | null {
+  if (!region) return null;
+  return JSON.stringify({
+    x: Number(region.x.toFixed(4)),
+    y: Number(region.y.toFixed(4)),
+    width: Number(region.width.toFixed(4)),
+    height: Number(region.height.toFixed(4)),
+  });
+}
+
 export function normalizeTransactionCandidate(
   candidate: ExtractedTransactionCandidate,
   context: NormalizeContext
@@ -143,6 +153,7 @@ export function normalizeTransactionCandidate(
     validation_status: reasons.length > 0 ? 'needs_review' : 'valid',
     review_status: reasons.length > 0 ? 'pending' : 'none',
     evidence_text: candidate.evidence_text,
+    evidence_region: serializeEvidenceRegion(candidate.evidence_region),
     created_at: now,
     updated_at: now,
   };
@@ -187,6 +198,7 @@ export function normalizeAssetSnapshotCandidate(
     balance_type: candidate.balance_type_hint,
     confidence: candidate.confidence,
     evidence_text: candidate.evidence_text,
+    evidence_region: serializeEvidenceRegion(candidate.evidence_region),
     created_at: now,
   };
 

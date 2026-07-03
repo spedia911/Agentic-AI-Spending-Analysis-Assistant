@@ -46,6 +46,7 @@ describe('normalizeTransactionCandidate', () => {
       transaction_type_hint: 'expense',
       confidence: 0.93,
       evidence_text: 'Jun 12 Trader Joes $42.19',
+      evidence_region: { x: 0.12345, y: 0.2, width: 0.7, height: 0.05555 },
     };
 
     const result = normalizeTransactionCandidate(candidate, context);
@@ -59,6 +60,7 @@ describe('normalizeTransactionCandidate', () => {
       account_label: 'Visa *****6789',
       validation_status: 'valid',
       review_status: 'none',
+      evidence_region: '{"x":0.1235,"y":0.2,"width":0.7,"height":0.0556}',
     });
     expect(result.transaction.transaction_id).toMatch(/^txn_/);
     expect(result.reviewItems).toEqual([]);
@@ -99,6 +101,7 @@ describe('normalizeExtractionCandidates', () => {
           transaction_type_hint: 'income',
           confidence: 0.9,
           evidence_text: 'Payroll $1000.00',
+          evidence_region: null,
         },
       ],
       [
@@ -110,6 +113,7 @@ describe('normalizeExtractionCandidates', () => {
           observed_date_text: '6/30',
           confidence: 0.88,
           evidence_text: 'Available balance $5,432.10',
+          evidence_region: { x: 0.05, y: 0.1, width: 0.9, height: 0.12 },
         },
       ],
       context
@@ -118,6 +122,7 @@ describe('normalizeExtractionCandidates', () => {
     expect(output.transactions).toHaveLength(1);
     expect(output.assetSnapshots).toHaveLength(1);
     expect(output.assetSnapshots[0].balance).toBe(5432.1);
+    expect(output.assetSnapshots[0].evidence_region).toBe('{"x":0.05,"y":0.1,"width":0.9,"height":0.12}');
     expect(output.reviewItems).toEqual([]);
   });
 });

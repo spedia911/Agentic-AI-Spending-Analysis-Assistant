@@ -33,7 +33,8 @@ export interface StageImportOptions {
 
 export interface StageUpdateInput {
   stageId: string;
-  transactions: Array<Partial<Transaction> & { transaction_id: string; selected?: boolean }>;
+  transactions: Array<Partial<Transaction> & { transaction_id: string }>;
+  snapshots?: Array<{ source_document_id: string; selected: boolean }>;
 }
 
 const STAGE_FILE = path.join(process.cwd(), 'data', 'private', 'snapshot-review-stage.json');
@@ -148,8 +149,10 @@ export async function updateSnapshotReviewStage(input: StageUpdateInput): Promis
   }
 
   const updates = new Map(input.transactions.map((transaction) => [transaction.transaction_id, transaction]));
+  const snapshotSelectionUpdates = new Map(input.snapshots?.map((snapshot) => [snapshot.source_document_id, snapshot.selected]) ?? []);
   const snapshots = stage.snapshots.map((snapshot) => ({
     ...snapshot,
+    selected: snapshotSelectionUpdates.get(snapshot.source.source_document_id) ?? snapshot.selected,
     transactions: snapshot.transactions.map((transaction) => {
       const update = updates.get(transaction.transaction_id);
       if (!update) return transaction;
@@ -174,14 +177,15 @@ export async function commitSnapshotReviewStage(stageIdToCommit: string): Promis
 
   const sheetId = await initializeSpreadsheet(env.GOOGLE_SHEET_ID);
   const now = new Date().toISOString();
-  const sources = stage.snapshots.map((snapshot) => ({
+  const selectedSnapshots = stage.snapshots.filter((snapshot) => snapshot.selected !== false);
+  const sources = selectedSnapshots.map((snapshot) => ({
     ...snapshot.source,
     status: 'processed' as const,
     processed_at: now,
   }));
-  const transactions = stage.snapshots.flatMap((snapshot) => snapshot.transactions);
-  const assetSnapshots = stage.snapshots.flatMap((snapshot) => snapshot.assetSnapshots);
-  const reviewItems = stage.snapshots.flatMap((snapshot) => snapshot.reviewItems);
+  const transactions = selectedSnapshots.flatMap((snapshot) => snapshot.transactions);
+  const assetSnapshots = selectedSnapshots.flatMap((snapshot) => snapshot.assetSnapshots);
+  const reviewItems = selectedSnapshots.flatMap((snapshot) => snapshot.reviewItems);
 
   await upsertRows<SourceDocument>(sheetId, 'SourceDocuments', 'source_document_id', sources);
   await upsertRows<Transaction>(sheetId, 'Transactions', 'transaction_id', transactions);

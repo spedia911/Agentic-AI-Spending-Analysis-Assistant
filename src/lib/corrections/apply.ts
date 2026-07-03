@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { getEnv } from '../env';
 import { initializeSpreadsheet, readRows, upsertRows } from '../google/sheets';
 import { refreshSummaryTabs, type RefreshSummariesResult } from '../orchestrator/summarize';
-import type { AssetSnapshot, Correction, ReviewItem, Transaction } from '../../types/domain';
+import type { AssetSnapshot, Correction, ReviewItem, SourceDocument, Transaction } from '../../types/domain';
 
 export interface ApplyReviewCorrectionInput {
   reviewItemId: string;
@@ -37,6 +37,7 @@ export interface ApplyBatchCorrectionsResult {
   sheetId: string;
   transactionsUpdated: number;
   assetSnapshotsUpdated: number;
+  sourceDocumentsUpdated: number;
   reviewsResolved: number;
   correctionsWritten: number;
   summaries: RefreshSummariesResult;
@@ -181,6 +182,23 @@ function applyAssetSnapshotField(assetSnapshot: AssetSnapshot, fieldName: Correc
   throw new Error('Correction field is not supported for asset snapshots: ' + fieldName);
 }
 
+function applySourceDocumentField(sourceDocument: SourceDocument, fieldName: Correction['field_name'], newValue: string, now: string): SourceDocument {
+  if (fieldName !== 'source_status') {
+    throw new Error('Correction field is not supported for source documents: ' + fieldName);
+  }
+
+  if (!['pending', 'processed', 'skipped', 'error'].includes(newValue)) {
+    throw new Error('Source document status correction is not supported: ' + newValue);
+  }
+
+  return {
+    ...sourceDocument,
+    status: newValue as SourceDocument['status'],
+    processed_at: newValue === 'processed' ? now : sourceDocument.processed_at,
+    error_summary: newValue === 'pending' || newValue === 'processed' ? null : sourceDocument.error_summary,
+  };
+}
+
 function oldTransactionValueForField(transaction: Transaction, fieldName: Correction['field_name']): string {
   if (fieldName === 'category') return transaction.category;
   if (fieldName === 'merchant_normalized') return transaction.merchant_normalized;
@@ -202,6 +220,11 @@ function oldAssetSnapshotValueForField(assetSnapshot: AssetSnapshot, fieldName: 
   return '';
 }
 
+function oldSourceDocumentValueForField(sourceDocument: SourceDocument, fieldName: Correction['field_name']): string {
+  if (fieldName === 'source_status') return sourceDocument.status;
+  return '';
+}
+
 export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): Promise<ApplyBatchCorrectionsResult> {
   const env = getEnv();
   const now = input.now ?? new Date().toISOString();
@@ -209,11 +232,14 @@ export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): 
   const reviewItems = await readRows<ReviewItem>(sheetId, 'ReviewQueue');
   const transactions = await readRows<Transaction>(sheetId, 'Transactions');
   const assetSnapshots = await readRows<AssetSnapshot>(sheetId, 'AssetSnapshots');
+  const sourceDocuments = await readRows<SourceDocument>(sheetId, 'SourceDocuments');
   const transactionById = new Map(transactions.map((transaction) => [transaction.transaction_id, transaction]));
   const assetSnapshotById = new Map(assetSnapshots.map((assetSnapshot) => [assetSnapshot.asset_snapshot_id, assetSnapshot]));
+  const sourceDocumentById = new Map(sourceDocuments.map((sourceDocument) => [sourceDocument.source_document_id, sourceDocument]));
   const reviewById = new Map(reviewItems.map((review) => [review.review_item_id, review]));
   const updatedTransactions = new Map<string, Transaction>();
   const updatedAssetSnapshots = new Map<string, AssetSnapshot>();
+  const updatedSourceDocuments = new Map<string, SourceDocument>();
   const resolvedReviews = new Map<string, ReviewItem>();
   const correctionRows: Correction[] = [];
 
@@ -222,11 +248,12 @@ export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): 
     if (item.reviewItemId && !review) {
       throw new Error('Review item not found: ' + item.reviewItemId);
     }
-    if (review && review.target_type !== 'transaction' && review.target_type !== 'asset_snapshot') {
-      throw new Error('Only transaction and asset snapshot review corrections are supported in this workflow.');
+    if (review && review.target_type !== 'transaction' && review.target_type !== 'asset_snapshot' && review.target_type !== 'source_document') {
+      throw new Error('Only transaction, asset snapshot, and source document review corrections are supported in this workflow.');
     }
 
-    const targetType: Correction['target_type'] = review?.target_type === 'asset_snapshot' ? 'asset_snapshot' : 'transaction';
+    const targetType: Correction['target_type'] =
+      review?.target_type === 'asset_snapshot' ? 'asset_snapshot' : review?.target_type === 'source_document' ? 'source_document' : 'transaction';
     const targetId = item.transactionId ?? review?.target_id;
     if (!targetId) {
       throw new Error('Correction must include a transactionId or reviewItemId.');
@@ -242,7 +269,7 @@ export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): 
       const updatedTransaction = applyTransactionField(currentTransaction, item.fieldName, item.newValue, now);
       updatedTransactions.set(targetId, updatedTransaction);
       oldValue = oldTransactionValueForField(currentTransaction, item.fieldName);
-    } else {
+    } else if (targetType === 'asset_snapshot') {
       const currentAssetSnapshot = updatedAssetSnapshots.get(targetId) ?? assetSnapshotById.get(targetId);
       if (!currentAssetSnapshot) {
         throw new Error('Asset snapshot not found for correction: ' + targetId);
@@ -251,12 +278,25 @@ export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): 
       const updatedAssetSnapshot = applyAssetSnapshotField(currentAssetSnapshot, item.fieldName, item.newValue);
       updatedAssetSnapshots.set(targetId, updatedAssetSnapshot);
       oldValue = oldAssetSnapshotValueForField(currentAssetSnapshot, item.fieldName);
+    } else {
+      const currentSourceDocument = updatedSourceDocuments.get(targetId) ?? sourceDocumentById.get(targetId);
+      if (!currentSourceDocument) {
+        throw new Error('Source document not found for correction: ' + targetId);
+      }
+
+      const updatedSourceDocument = applySourceDocumentField(currentSourceDocument, item.fieldName, item.newValue, now);
+      updatedSourceDocuments.set(targetId, updatedSourceDocument);
+      oldValue = oldSourceDocumentValueForField(currentSourceDocument, item.fieldName);
     }
 
     if (review) {
       resolvedReviews.set(review.review_item_id, {
         ...review,
-        status: item.fieldName === 'review_status' && item.newValue === 'ignored' ? 'ignored' : 'resolved',
+        status:
+          (item.fieldName === 'review_status' && item.newValue === 'ignored') ||
+          (item.fieldName === 'source_status' && item.newValue === 'skipped')
+            ? 'ignored'
+            : 'resolved',
         user_answer: item.newValue,
         resolved_at: now,
       });
@@ -297,6 +337,9 @@ export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): 
   if (updatedAssetSnapshots.size > 0) {
     await upsertRows<AssetSnapshot>(sheetId, 'AssetSnapshots', 'asset_snapshot_id', Array.from(updatedAssetSnapshots.values()));
   }
+  if (updatedSourceDocuments.size > 0) {
+    await upsertRows<SourceDocument>(sheetId, 'SourceDocuments', 'source_document_id', Array.from(updatedSourceDocuments.values()));
+  }
   if (resolvedReviews.size > 0) {
     await upsertRows<ReviewItem>(sheetId, 'ReviewQueue', 'review_item_id', Array.from(resolvedReviews.values()));
   }
@@ -307,6 +350,7 @@ export async function applyBatchCorrections(input: ApplyBatchCorrectionsInput): 
     sheetId,
     transactionsUpdated: updatedTransactions.size,
     assetSnapshotsUpdated: updatedAssetSnapshots.size,
+    sourceDocumentsUpdated: updatedSourceDocuments.size,
     reviewsResolved: resolvedReviews.size,
     correctionsWritten: correctionRows.length,
     summaries,

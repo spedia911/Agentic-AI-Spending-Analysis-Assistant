@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import styles from '../page.module.css';
-import type { AssetSnapshot, Correction, ReviewItem, Transaction } from '../../types/domain';
+import type { AssetSnapshot, Correction, ReviewItem, SourceDocument, Transaction } from '../../types/domain';
 
 type CorrectionField = Correction['field_name'];
 
@@ -13,8 +14,19 @@ type DraftCorrection = {
 };
 
 type SeverityFilter = 'all' | ReviewItem['severity'];
+type IssueFilter = 'all' | ReviewItem['issue_type'] | 'asset_snapshot' | 'source_document';
 
 const SEVERITY_ORDER: ReviewItem['severity'][] = ['high', 'medium', 'low'];
+const ISSUE_FILTERS: Array<{ value: IssueFilter; label: string }> = [
+  { value: 'all', label: 'All issues' },
+  { value: 'missing_field', label: 'Missing field' },
+  { value: 'duplicate_risk', label: 'Duplicate risk' },
+  { value: 'unclear_category', label: 'Unclear category' },
+  { value: 'low_confidence', label: 'Low confidence' },
+  { value: 'anomaly', label: 'Anomaly' },
+  { value: 'asset_snapshot', label: 'Asset snapshots' },
+  { value: 'source_document', label: 'Source files' },
+];
 
 const CATEGORY_OPTIONS = [
   'groceries',
@@ -42,11 +54,19 @@ const REVIEW_STATUS_OPTIONS = [
   { value: 'resolved', label: 'Keep this snapshot' },
   { value: 'ignored', label: 'Ignore this review' },
 ];
+const SOURCE_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Retry processing' },
+  { value: 'skipped', label: 'Ignore this source' },
+  { value: 'processed', label: 'Mark processed' },
+  { value: 'error', label: 'Keep as error' },
+];
 
 interface ReviewWorkbenchProps {
   assetSnapshots: AssetSnapshot[];
   pendingReviews: ReviewItem[];
+  sourceDocuments: SourceDocument[];
   transactions: Transaction[];
+  userEmail: string;
 }
 
 function safeText(value: string | null | undefined, fallback = '') {
@@ -60,6 +80,7 @@ function money(value: number | null | undefined) {
 
 function suggestedField(review: ReviewItem): CorrectionField {
   if (review.target_type === 'asset_snapshot') return 'review_status';
+  if (review.target_type === 'source_document') return 'source_status';
   const question = safeText(review.question).toLowerCase();
   if (review.issue_type === 'duplicate_risk') return 'validation_status';
   if (review.issue_type === 'unclear_category') return 'category';
@@ -75,6 +96,7 @@ function defaultValue(
   review: ReviewItem,
   transaction: Transaction | undefined,
   assetSnapshot: AssetSnapshot | undefined,
+  sourceDocument: SourceDocument | undefined,
   fieldName: CorrectionField
 ) {
   const options = cleanSuggestedOptions(review.suggested_options);
@@ -87,6 +109,10 @@ function defaultValue(
     if (fieldName === 'balance') return Number.isFinite(assetSnapshot.balance) ? String(assetSnapshot.balance) : '';
     if (fieldName === 'account_label') return safeText(assetSnapshot.account_label);
     if (fieldName === 'balance_type') return safeText(assetSnapshot.balance_type, 'unknown');
+  }
+  if (review.target_type === 'source_document') {
+    if (fieldName === 'source_status') return sourceDocument?.status === 'error' ? 'pending' : safeText(sourceDocument?.status, 'pending');
+    return safeText(sourceDocument?.status, 'pending');
   }
   if (!transaction) return '';
   if (fieldName === 'category') return transaction.category === 'uncategorized' ? '' : safeText(transaction.category);
@@ -103,6 +129,10 @@ function defaultValue(
 
 function cleanSuggestedOptions(options: string[] | null | undefined) {
   return (Array.isArray(options) ? options : []).filter((option) => option !== 'duplicate_remove_one');
+}
+
+function sourceEvidenceHref(sourceDocumentId: string, userEmail: string) {
+  return '/source/' + encodeURIComponent(sourceDocumentId) + '?email=' + encodeURIComponent(userEmail);
 }
 
 function inputForDraft(
@@ -151,6 +181,14 @@ function inputForDraft(
     );
   }
 
+  if (draft.fieldName === 'source_status') {
+    return (
+      <select value={draft.newValue} onChange={(event) => onChange(event.target.value)}>
+        {SOURCE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    );
+  }
+
   return (
     <input
       type={draft.fieldName === 'date' || draft.fieldName === 'observed_date' ? 'date' : draft.fieldName === 'observed_month' ? 'month' : 'text'}
@@ -160,7 +198,7 @@ function inputForDraft(
   );
 }
 
-export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transactions }: ReviewWorkbenchProps) {
+export default function ReviewWorkbench({ assetSnapshots, pendingReviews, sourceDocuments, transactions, userEmail }: ReviewWorkbenchProps) {
   const [selectedReviews, setSelectedReviews] = useState<Record<string, boolean>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, DraftCorrection>>({});
   const [selectedTransactions, setSelectedTransactions] = useState<Record<string, boolean>>({});
@@ -168,6 +206,7 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [bulkMonth, setBulkMonth] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [issueFilter, setIssueFilter] = useState<IssueFilter>('all');
   const [collapsedSeverity, setCollapsedSeverity] = useState<Record<ReviewItem['severity'], boolean>>({
     high: false,
     medium: false,
@@ -179,11 +218,21 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
 
   const transactionById = useMemo(() => new Map(transactions.map((transaction) => [transaction.transaction_id, transaction])), [transactions]);
   const assetSnapshotById = useMemo(() => new Map(assetSnapshots.map((assetSnapshot) => [assetSnapshot.asset_snapshot_id, assetSnapshot])), [assetSnapshots]);
+  const sourceDocumentById = useMemo(() => new Map(sourceDocuments.map((sourceDocument) => [sourceDocument.source_document_id, sourceDocument])), [sourceDocuments]);
   const activeReviews = pendingReviews.filter((review) => !resolvedReviewIds[review.review_item_id]);
-  const filteredReviews = activeReviews.filter((review) => severityFilter === 'all' || review.severity === severityFilter);
+  const filteredReviews = activeReviews.filter((review) => {
+    const severityMatches = severityFilter === 'all' || review.severity === severityFilter;
+    const issueMatches =
+      issueFilter === 'all' ||
+      review.issue_type === issueFilter ||
+      review.target_type === issueFilter;
+    return severityMatches && issueMatches;
+  });
   const groupedReviews = SEVERITY_ORDER.map((severity) => ({
     severity,
-    reviews: filteredReviews.filter((review) => review.severity === severity),
+    reviews: filteredReviews
+      .filter((review) => review.severity === severity)
+      .sort((a, b) => reviewImpact(b) - reviewImpact(a)),
     total: activeReviews.filter((review) => review.severity === severity).length,
   })).filter((group) => group.total > 0 || severityFilter === group.severity);
   const months = Array.from(new Set(transactions.map((transaction) => safeText(transaction.observed_month, 'unknown')))).sort();
@@ -194,11 +243,12 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
     if (current) return current;
     const transaction = transactionById.get(review.target_id);
     const assetSnapshot = assetSnapshotById.get(review.target_id);
+    const sourceDocument = sourceDocumentById.get(review.target_id);
     const suggested = suggestedField(review);
     const fieldName = suggested === 'date' && transaction?.observed_month ? 'observed_month' : suggested;
     return {
       fieldName,
-      newValue: defaultValue(review, transaction, assetSnapshot, fieldName),
+      newValue: defaultValue(review, transaction, assetSnapshot, sourceDocument, fieldName),
       applyFuture: false,
     };
   }
@@ -206,14 +256,24 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
   function isSupportedReview(review: ReviewItem) {
     return (
       (review.target_type === 'transaction' && transactionById.has(review.target_id)) ||
-      (review.target_type === 'asset_snapshot' && assetSnapshotById.has(review.target_id))
+      (review.target_type === 'asset_snapshot' && assetSnapshotById.has(review.target_id)) ||
+      (review.target_type === 'source_document' && sourceDocumentById.has(review.target_id))
     );
+  }
+
+  function reviewImpact(review: ReviewItem) {
+    const transaction = transactionById.get(review.target_id);
+    if (transaction) return Math.abs(transaction.amount);
+    const assetSnapshot = assetSnapshotById.get(review.target_id);
+    if (assetSnapshot) return Math.abs(assetSnapshot.balance);
+    return 0;
   }
 
   function updateReviewDraft(review: ReviewItem, patch: Partial<DraftCorrection>) {
     setReviewDrafts((current) => {
       const transaction = transactionById.get(review.target_id);
       const assetSnapshot = assetSnapshotById.get(review.target_id);
+      const sourceDocument = sourceDocumentById.get(review.target_id);
       const previous = current[review.review_item_id] ?? draftForReview(review);
       const fieldName = patch.fieldName ?? previous.fieldName;
       const resetValue = patch.fieldName && patch.fieldName !== previous.fieldName;
@@ -223,7 +283,7 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
           ...previous,
           ...patch,
           fieldName,
-          newValue: resetValue ? defaultValue(review, transaction, assetSnapshot, fieldName) : patch.newValue ?? previous.newValue,
+          newValue: resetValue ? defaultValue(review, transaction, assetSnapshot, sourceDocument, fieldName) : patch.newValue ?? previous.newValue,
         },
       };
     });
@@ -364,6 +424,19 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
             </button>
           ))}
         </div>
+        <div className={styles.severityControls}>
+          {ISSUE_FILTERS.map((filter) => (
+            <button
+              aria-pressed={issueFilter === filter.value}
+              className={issueFilter === filter.value ? styles.activeFilter : ''}
+              key={filter.value}
+              onClick={() => setIssueFilter(filter.value)}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
         <div className={styles.reviewTable}>
           {activeReviews.length === 0 ? <p className={styles.mutedText}>No pending reviews.</p> : groupedReviews.map((group) => (
             <section className={styles.severityGroup} key={group.severity}>
@@ -380,6 +453,9 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
               ) : group.reviews.map((review) => {
             const transaction = transactionById.get(review.target_id);
             const assetSnapshot = assetSnapshotById.get(review.target_id);
+            const sourceDocument = sourceDocumentById.get(review.target_id);
+            const transactionSource = transaction ? sourceDocumentById.get(transaction.source_document_id) : undefined;
+            const assetSource = assetSnapshot ? sourceDocumentById.get(assetSnapshot.source_document_id) : undefined;
             const draft = draftForReview(review);
             const options = cleanSuggestedOptions(review.suggested_options);
             const canApply = isSupportedReview(review);
@@ -395,25 +471,46 @@ export default function ReviewWorkbench({ assetSnapshots, pendingReviews, transa
                   />
                 </label>
                 <div className={styles.rowMain}>
-                  <strong>{transaction ? transaction.merchant_normalized : assetSnapshot ? assetSnapshot.account_label : review.target_type}</strong>
+                  <strong>{transaction ? transaction.merchant_normalized : assetSnapshot ? assetSnapshot.account_label : sourceDocument ? sourceDocument.file_name : review.target_type}</strong>
                   <span>{review.question}</span>
                   {transaction ? (
                     <small>
-                      {safeText(transaction.transaction_date, 'missing date')} | {safeText(transaction.observed_month, 'unknown month')} | {money(transaction.amount)} | {safeText(transaction.account_label)}
+                      {safeText(transaction.transaction_date, 'missing date')} | {safeText(transaction.observed_month, 'unknown month')} | {money(transaction.amount)} | {safeText(transaction.account_label)} |{' '}
+                      <Link className={styles.tableLink} href={sourceEvidenceHref(transaction.source_document_id, userEmail)}>
+                        {transactionSource?.file_name ?? transaction.source_document_id}
+                      </Link>
+                      {' '}| impact {money(reviewImpact(review))}
                     </small>
                   ) : null}
                   {assetSnapshot ? (
                     <small>
-                      {safeText(assetSnapshot.observed_date, 'missing date')} | {safeText(assetSnapshot.observed_month, 'unknown month')} | {money(assetSnapshot.balance)} | {assetSnapshot.balance_type} | confidence {Math.round(assetSnapshot.confidence * 100)}%
+                      {safeText(assetSnapshot.observed_date, 'missing date')} | {safeText(assetSnapshot.observed_month, 'unknown month')} | {money(assetSnapshot.balance)} | {assetSnapshot.balance_type} | confidence {Math.round(assetSnapshot.confidence * 100)}% |{' '}
+                      <Link className={styles.tableLink} href={sourceEvidenceHref(assetSnapshot.source_document_id, userEmail)}>
+                        {assetSource?.file_name ?? assetSnapshot.source_document_id}
+                      </Link>
+                      {' '}| impact {money(reviewImpact(review))}
+                    </small>
+                  ) : null}
+                  {sourceDocument ? (
+                    <small>
+                      {sourceDocument.status} | {sourceDocument.mime_type} | modified {safeText(sourceDocument.modified_time, 'unknown')} |{' '}
+                      <Link className={styles.tableLink} href={sourceEvidenceHref(sourceDocument.source_document_id, userEmail)}>
+                        Source evidence
+                      </Link>
                     </small>
                   ) : null}
                   {transaction?.evidence_text ? <blockquote className={styles.evidence}>{transaction.evidence_text}</blockquote> : null}
                   {assetSnapshot?.evidence_text ? <blockquote className={styles.evidence}>{assetSnapshot.evidence_text}</blockquote> : null}
+                  {sourceDocument?.error_summary ? <blockquote className={styles.evidence}>{sourceDocument.error_summary}</blockquote> : null}
                 </div>
                 {canApply ? (
                   <div className={styles.rowControls}>
                     <select value={draft.fieldName} onChange={(event) => updateReviewDraft(review, { fieldName: event.target.value as CorrectionField })}>
-                      {review.target_type === 'asset_snapshot' ? (
+                      {review.target_type === 'source_document' ? (
+                        <>
+                          <option value="source_status">Source decision</option>
+                        </>
+                      ) : review.target_type === 'asset_snapshot' ? (
                         <>
                           <option value="review_status">Review decision</option>
                           <option value="observed_month">Month only</option>

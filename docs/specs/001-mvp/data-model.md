@@ -39,6 +39,7 @@ Normalized transaction records.
 | validation_status | string | valid, needs_review, rejected |
 | review_status | string | none, pending, resolved |
 | evidence_text | string | Short source evidence |
+| evidence_region | string | Optional JSON normalized bounding box for screenshot highlighting |
 | created_at | datetime | Workflow timestamp |
 | updated_at | datetime | Workflow timestamp |
 
@@ -57,6 +58,7 @@ Visible bank or account balance snapshots.
 | balance_type | string | checking, savings, credit_available, credit_balance, unknown |
 | confidence | decimal | 0 to 1 |
 | evidence_text | string | Short source evidence |
+| evidence_region | string | Optional JSON normalized bounding box for screenshot highlighting |
 | created_at | datetime | Workflow timestamp |
 
 ## Tab: ReviewQueue
@@ -79,14 +81,14 @@ Human-in-the-loop review items.
 
 ## Tab: Corrections
 
-Stores user corrections, asset snapshot review decisions, and merchant memory.
+Stores user corrections, asset snapshot review decisions, anomaly decisions, and merchant memory.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | correction_id | string | Stable ID |
-| target_type | string | transaction, asset_snapshot, merchant_rule |
+| target_type | string | transaction, asset_snapshot, source_document, anomaly, merchant_rule |
 | target_id | string | Linked record |
-| field_name | string | category, merchant_normalized, amount, date, observed_month, transaction_type, validation_status, account_label, balance, balance_type, observed_date, review_status |
+| field_name | string | category, merchant_normalized, amount, date, observed_month, transaction_type, validation_status, account_label, balance, balance_type, observed_date, review_status, source_status, anomaly_status |
 | old_value | string | Original value |
 | new_value | string | Corrected value |
 | apply_future | boolean | Whether correction trains future merchant rule |
@@ -118,6 +120,24 @@ Quarterly category totals.
 | total_amount | decimal | Sum |
 | transaction_count | integer | Count |
 | quarter_over_quarter_delta | decimal | Difference from prior quarter |
+| completeness_status | string | complete, partial, unknown |
+
+## Tab: CashFlowSummary
+
+Monthly cash-flow totals by transaction behavior.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| month | string | YYYY-MM |
+| spending_total | decimal | Expense-like outflow used for spending analysis |
+| income_total | decimal | Income/deposit inflow |
+| refund_total | decimal | Refund/credit inflow |
+| transfer_total | decimal | Internal transfers and credit card payments |
+| payment_total | decimal | Payment rows not yet classified as spending or transfer |
+| fee_total | decimal | Fees included in spending but called out separately |
+| net_cash_flow | decimal | income + refunds - spending |
+| transaction_count | integer | Count of usable transactions |
+| unresolved_count | integer | Pending or needs-review transaction count |
 | completeness_status | string | complete, partial, unknown |
 
 ## Tab: AssetTrends

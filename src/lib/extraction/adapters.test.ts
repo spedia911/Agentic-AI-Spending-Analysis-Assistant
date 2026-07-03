@@ -74,4 +74,27 @@ describe('createVisionModelAdapter', () => {
 
     expect(openai).toBeInstanceOf(OpenAIVisionAdapter);
   });
+
+  it('uses the shared Gemini default model when AI_MODEL is blank', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      okResponse({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] })
+    );
+    const adapter = createVisionModelAdapter({
+      AI_PROVIDER: 'gemini',
+      AI_API_KEY: 'key',
+      AI_MODEL: undefined,
+      GOOGLE_DRIVE_FOLDER_ID: 'folder',
+      GOOGLE_SHEET_ID: 'sheet',
+      SINGLE_USER_EMAIL: 'user@example.com',
+      LOW_CONFIDENCE_THRESHOLD: 0.75,
+      TIMEZONE: 'America/Los_Angeles',
+      SOURCE_IMAGE_RETENTION_DAYS: 30,
+      NODE_ENV: 'test',
+      GOOGLE_REDIRECT_URI: 'http://localhost:3000/api/auth/google/callback',
+    }, fetchImpl);
+
+    await adapter.extractJson(input);
+
+    expect(fetchImpl.mock.calls[0][0]).toContain('models/gemini-2.5-flash:generateContent');
+  });
 });

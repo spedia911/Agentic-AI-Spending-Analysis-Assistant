@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getEnv } from '../../../../lib/env';
 import { initializeSpreadsheet, upsertRows } from '../../../../lib/google/sheets';
 import { refreshSummaryTabs } from '../../../../lib/orchestrator/summarize';
+import { safeErrorDetail } from '../../../../lib/privacy/redact';
 import type { AssetSnapshot, ReviewItem, SourceDocument, Transaction } from '../../../../types/domain';
 
 const now = '2026-06-29T10:00:00Z';
@@ -122,7 +123,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error: 'Demo seed failed',
-        detail: error instanceof Error ? error.message : 'Unknown error',
+        detail: safeErrorDetail(error),
       },
       { status: 500 }
     );

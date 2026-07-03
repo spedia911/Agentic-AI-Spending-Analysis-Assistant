@@ -1,4 +1,5 @@
 import { getEnv, type Env } from '../env';
+import { configuredAiModel } from '../ai/defaults';
 import type { VisionModelAdapter } from './schema';
 
 interface FetchLikeResponse {
@@ -151,11 +152,11 @@ export class GeminiVisionAdapter implements VisionModelAdapter {
 
 export function createVisionModelAdapter(env: Env = getEnv(), fetchImpl?: FetchLike): VisionModelAdapter {
   if (env.AI_PROVIDER === 'openai') {
-    return new OpenAIVisionAdapter(env.AI_API_KEY, env.AI_MODEL || 'gpt-4.1-mini', fetchImpl);
+    return new OpenAIVisionAdapter(env.AI_API_KEY, configuredAiModel(env), fetchImpl);
   }
 
   if (env.AI_PROVIDER === 'gemini') {
-    return new GeminiVisionAdapter(env.AI_API_KEY, env.AI_MODEL || 'gemini-1.5-flash', fetchImpl);
+    return new GeminiVisionAdapter(env.AI_API_KEY, configuredAiModel(env), fetchImpl);
   }
 
   throw new Error('AI provider "' + env.AI_PROVIDER + '" is configured but no vision adapter is implemented yet.');

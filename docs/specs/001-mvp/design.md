@@ -135,6 +135,7 @@ Input:
 
 - Review queue item.
 - User response.
+- Anomaly decision.
 
 Output:
 
@@ -144,6 +145,7 @@ Output:
 Behavior:
 
 - Store user corrections in the `Corrections` tab.
+- Store anomaly decisions in the `Corrections` tab and preserve ignored or resolved anomaly status during summary refresh.
 - Recompute summaries after corrections.
 - Keep original extracted value for audit.
 
@@ -183,6 +185,7 @@ Views:
 - Asset balance trend.
 - Review queue.
 - Anomaly list.
+- Next-best-action summary for failed files, pending reviews, anomalies, negative cash flow, and asset balance concerns.
 
 ## Agent Orchestration
 
@@ -241,4 +244,3 @@ Use deterministic IDs to avoid duplicate rows:
 - Do not store source screenshots in public folders.
 - Keep local raw data out of git.
 - Use least-privilege Google scopes.
-

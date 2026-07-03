@@ -18,7 +18,7 @@ export default async function ImportPage({ searchParams }: { searchParams?: Prom
         <section className={styles.accessPanel}>
           <h1>Import Snapshots</h1>
           <p>Enter the configured user email as a query parameter to import snapshots.</p>
-          <code>?email={env.SINGLE_USER_EMAIL}</code>
+          <code>?email=your_configured_email@example.com</code>
         </section>
       </main>
     );

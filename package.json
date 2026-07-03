@@ -2,10 +2,18 @@
   "name": "agentic-spending-analysis-assistant",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "doctor": "sh scripts/preflight.sh",
+    "docs:check": "sh scripts/docs-check.sh",
+    "package:check": "sh scripts/package-check.sh",
+    "privacy:check": "sh scripts/privacy-check.sh",
+    "submission:final": "sh scripts/final-submission-check.sh",
+    "verify": "sh scripts/verify.sh",
+    "verify:ci": "sh scripts/verify-ci.sh",
     "lint": "eslint",
     "test": "vitest run"
   },

@@ -128,7 +128,7 @@ export default function SpendingExplorer({ defaultMonth, rows }: SpendingExplore
   }
 
   return (
-    <section className={styles.panel}>
+    <section className={styles.panel} id="spending-explorer">
       <div className={styles.sectionHeader}>
         <div>
           <p className={styles.eyebrow}>Spending explorer</p>

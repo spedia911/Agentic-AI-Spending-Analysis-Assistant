@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateAssetTrends, generateMonthlySummaries, generateQuarterlySummaries } from './generator';
+import { generateAssetTrends, generateCashFlowSummaries, generateMonthlySummaries, generateQuarterlySummaries } from './generator';
 import type { AssetSnapshot, Transaction } from '../../types/domain';
 
 function transaction(overrides: Partial<Transaction>): Transaction {
@@ -164,6 +164,42 @@ describe('summary generation', () => {
 
     expect(monthly.find((row) => row.category === 'rent')).toMatchObject({ total_amount: 2100 });
     expect(monthly.find((row) => row.category === 'transfer')).toMatchObject({ total_amount: 0 });
+  });
+
+  it('generates explicit monthly cash-flow summary rows without double-counting transfers or refunds', () => {
+    const cashFlow = generateCashFlowSummaries([
+      transaction({ amount: 120, transaction_type: 'expense', category: 'groceries' }),
+      transaction({ amount: -24, transaction_type: 'refund', category: 'shopping', merchant_normalized: 'Target Return' }),
+      transaction({ amount: 3000, transaction_type: 'income', category: 'income', merchant_normalized: 'Payroll Deposit' }),
+      transaction({
+        amount: -850,
+        transaction_type: 'payment',
+        category: 'miscellaneous',
+        merchant_raw: 'CHASE CREDIT CARD PAYMENT',
+        merchant_normalized: 'Chase Credit Card Payment',
+        evidence_text: 'CHASE CREDIT CARD PAYMENT -850.00',
+      }),
+      transaction({ amount: -75, transaction_type: 'payment', category: 'miscellaneous', merchant_normalized: 'Unknown Payment' }),
+      transaction({ amount: -3, transaction_type: 'fee', category: 'fees', merchant_normalized: 'ATM Fee', review_status: 'pending' }),
+      transaction({ amount: -400, transaction_type: 'transfer', category: 'transfer', merchant_normalized: 'Savings Transfer' }),
+      transaction({ amount: -999, transaction_type: 'expense', category: 'shopping', validation_status: 'rejected' }),
+    ]);
+
+    expect(cashFlow).toEqual([
+      expect.objectContaining({
+        month: '2026-06',
+        spending_total: 123,
+        income_total: 3000,
+        refund_total: 24,
+        transfer_total: 1250,
+        payment_total: 75,
+        fee_total: 3,
+        net_cash_flow: 2901,
+        transaction_count: 7,
+        unresolved_count: 1,
+        completeness_status: 'partial',
+      }),
+    ]);
   });
 
   it('generates asset trend maintainability flags', () => {

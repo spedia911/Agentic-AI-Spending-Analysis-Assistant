@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { getEnv } from '../env';
 import { downloadDriveFile, isSupportedDriveImage, listDriveFolderFiles } from '../google/drive';
 import { initializeSpreadsheet, readRows, upsertRows } from '../google/sheets';
+import { maskSensitiveText } from '../privacy/redact';
 import { SourceDocument } from '../../types/domain';
 
 export interface IngestOptions {
@@ -16,13 +17,6 @@ export interface IngestResult {
   newDocuments: SourceDocument[];
   skippedDocuments: SourceDocument[];
   errorDocuments: SourceDocument[];
-}
-
-function maskSensitiveText(value: string): string {
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
-    .replace(/\b\d{5,}\b/g, '[number]')
-    .slice(0, 240);
 }
 
 async function cleanupPrivateCache(localCacheDir: string, retentionDays: number, now: Date): Promise<number> {
