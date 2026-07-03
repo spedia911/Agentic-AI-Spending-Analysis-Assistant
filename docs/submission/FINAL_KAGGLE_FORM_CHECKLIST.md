@@ -22,7 +22,7 @@ Use this immediately before clicking Submit on Kaggle.
 Preferred:
 
 ```text
-https://github.com/YOUR_USERNAME/YOUR_PUBLIC_REPO
+https://github.com/spedia911/Agentic-AI-Spending-Analysis-Assistant
 ```
 
 Optional hosted demo:
@@ -68,7 +68,7 @@ Confirm:
 After the public project link and YouTube URL exist, run the final external check:
 
 ```bash
-KAGGLE_PROJECT_LINK="https://github.com/YOUR_USERNAME/YOUR_PUBLIC_REPO" \
+KAGGLE_PROJECT_LINK="https://github.com/spedia911/Agentic-AI-Spending-Analysis-Assistant" \
 KAGGLE_YOUTUBE_URL="https://youtu.be/YOUR_VIDEO_ID" \
 KAGGLE_VIDEO_DURATION_SECONDS="290" \
 KAGGLE_MEDIA_GALLERY_CONFIRMED="yes" \

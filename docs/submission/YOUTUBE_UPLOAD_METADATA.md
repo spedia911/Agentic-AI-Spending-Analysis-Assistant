@@ -18,7 +18,7 @@ It turns screenshots from a private Google Drive folder into auditable Google Sh
 Track: Concierge Agents
 
 Project link:
-https://github.com/YOUR_USERNAME/YOUR_PUBLIC_REPO
+https://github.com/spedia911/Agentic-AI-Spending-Analysis-Assistant
 
 Kaggle Writeup assets:
 - Writeup draft: docs/submission/KAGGLE_WRITEUP_DRAFT.md

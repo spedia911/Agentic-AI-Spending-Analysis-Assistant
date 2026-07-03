@@ -15,7 +15,7 @@ Why:
 Public project link format:
 
 ```text
-https://github.com/YOUR_USERNAME/YOUR_PUBLIC_REPO
+https://github.com/spedia911/Agentic-AI-Spending-Analysis-Assistant
 ```
 
 ## Optional Hosted Demo
