@@ -40,13 +40,15 @@ printf 'Checking local tools and setup files...\n\n'
 if command -v node >/dev/null 2>&1; then
   node_version=$(node -v 2>/dev/null)
   node_major=$(printf '%s' "$node_version" | sed 's/^v//' | cut -d. -f1)
-  if [ "${node_major:-0}" -ge 20 ] 2>/dev/null; then
+  if [ "${node_major:-0}" -ge 26 ] 2>/dev/null; then
+    warn "Node is installed ($node_version). Node 20-24 is recommended; npm run dev will use a compatible local runtime when one is available."
+  elif [ "${node_major:-0}" -ge 20 ] 2>/dev/null; then
     ok "Node is installed ($node_version)."
   else
-    warn "Node is installed ($node_version), but Node 20 or newer is recommended for this project."
+    warn "Node is installed ($node_version), but Node 20-24 is recommended for this project."
   fi
 else
-  fail "Node is not installed or is not on PATH. Install Node 20+ from https://nodejs.org/ or with Homebrew: brew install node"
+  fail "Node is not installed or is not on PATH. Install Node 20-24 from https://nodejs.org/ or with Homebrew: brew install node"
 fi
 
 if command -v npm >/dev/null 2>&1; then

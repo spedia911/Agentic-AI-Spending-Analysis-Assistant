@@ -237,7 +237,7 @@ cd "/path/to/Kaggle Vibe Coding Capstone Project"
 sh scripts/preflight.sh
 ```
 
-If your computer has Node and npm:
+If your computer has Node and npm, use Node 20-24 when possible. Node 26 can trigger a Next.js development-stream cloning error; `npm run dev` will use a compatible local runtime when one is available.
 
 ```bash
 cd "/path/to/Kaggle Vibe Coding Capstone Project"
@@ -258,7 +258,7 @@ Or use the bundled Codex Node runtime:
 ```bash
 cd "/path/to/Kaggle Vibe Coding Capstone Project"
 export PATH="/path/to/node/bin:$PATH"
-./node_modules/.bin/next dev
+npm run dev
 ```
 
 Then open the dashboard with your real email:
