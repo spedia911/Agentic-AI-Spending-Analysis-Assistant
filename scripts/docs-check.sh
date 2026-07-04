@@ -50,6 +50,7 @@ require_file docs/submission/KAGGLE_EVALUATION_SCORECARD.md
 require_file docs/submission/COURSE_CONCEPT_COVERAGE.md
 require_file docs/submission/USER_STORY_UI_REVIEW.md
 require_file docs/submission/VIDEO_SCRIPT.md
+require_file docs/submission/DEMO_PRESENTATION.html
 require_file docs/submission/MEDIA_GALLERY_PLAN.md
 require_file docs/submission/YOUTUBE_UPLOAD_METADATA.md
 require_file docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md
@@ -107,6 +108,8 @@ require_text docs/submission/USER_STORY_UI_REVIEW.md 'US-001'
 require_text docs/submission/USER_STORY_UI_REVIEW.md 'UI Gaps Found And Addressed'
 require_text docs/submission/USER_STORY_UI_REVIEW.md 'Demo Shot Checklist'
 require_text docs/submission/VIDEO_SCRIPT.md 'Target length: 4:30 to 4:50'
+require_text docs/submission/VIDEO_SCRIPT.md 'DEMO_PRESENTATION.html'
+require_text docs/submission/DEMO_PRESENTATION.html 'Agentic AI Spending Analysis Assistant'
 require_text docs/submission/MEDIA_GALLERY_PLAN.md 'Kaggle requires a cover image'
 require_text docs/submission/YOUTUBE_UPLOAD_METADATA.md 'YouTube Upload Metadata'
 require_text docs/submission/YOUTUBE_UPLOAD_METADATA.md 'Video Visibility'
@@ -120,6 +123,7 @@ require_text docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md 'KAGGLE_YOUTUBE_URL'
 require_text docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md 'KAGGLE_PRIVATE_RESOURCES_CONFIRMED'
 require_text docs/submission/PUBLIC_REPO_MANIFEST.md 'Must Be Present'
 require_text docs/submission/PUBLIC_REPO_MANIFEST.md 'Must Not Be Present'
+require_text docs/submission/PUBLIC_REPO_MANIFEST.md 'DEMO_PRESENTATION.html'
 require_text docs/submission/PUBLIC_REPO_MANIFEST.md 'npm run verify:ci'
 require_text docs/submission/PUBLIC_REPO_MANIFEST.md 'scripts/package-check.sh'
 require_text docs/submission/PUBLIC_REPO_MANIFEST.md 'scripts/final-submission-check.sh'

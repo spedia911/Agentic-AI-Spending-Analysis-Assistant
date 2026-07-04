@@ -36,14 +36,16 @@ Safety note: this is a single-user, review-only assistant. It does not move mone
 ## Chapters
 
 ```text
-0:00 Opening
-0:25 Why agents
-0:55 Architecture
-1:30 Setup and safe demo
-2:10 Product demo
-2:55 Human review
-3:35 Anomalies and evidence
-4:10 Course concepts and close
+0:00 Opening concept
+0:20 Why this is agentic
+0:45 Product flow
+1:20 Trust and demo safety
+1:40 Dashboard handoff
+1:55 Action center and setup
+2:25 Spending and cash flow
+3:05 Human review workflow
+3:45 Anomalies and source evidence
+4:25 Course concepts and close
 ```
 
 ## Tags

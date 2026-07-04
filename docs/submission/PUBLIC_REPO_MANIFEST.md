@@ -16,6 +16,7 @@ Use this manifest before publishing the repository or attaching the public proje
 | `scripts/` | Preflight, privacy, docs, local verify, CI-safe verify, and final external submission check scripts |
 | `src/` | Application source code and tests |
 | `docs/` | Product specs, readiness docs, deployment notes, and Kaggle submission assets |
+| `docs/submission/DEMO_PRESENTATION.html` | Browser-based demo recording deck with slide visuals and speaker notes |
 | `docs/submission/YOUTUBE_UPLOAD_METADATA.md` | YouTube title, description, chapters, tags, Public visibility, and privacy checklist |
 | `docs/submission/USER_STORY_UI_REVIEW.md` | User-story trace, UI gap review, and demo shot checklist |
 | `docs/submission/KAGGLE_EVALUATION_SCORECARD.md` | Point-by-point Kaggle evaluation mapping |

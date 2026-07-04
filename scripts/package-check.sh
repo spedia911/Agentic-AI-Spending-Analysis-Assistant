@@ -52,6 +52,7 @@ require_file eslint.config.mjs
 require_file next.config.ts
 require_file .github/workflows/ci.yml
 require_file docs/submission/PUBLIC_REPO_MANIFEST.md
+require_file docs/submission/DEMO_PRESENTATION.html
 require_file docs/submission/YOUTUBE_UPLOAD_METADATA.md
 require_file docs/submission/USER_STORY_UI_REVIEW.md
 require_file docs/submission/KAGGLE_EVALUATION_SCORECARD.md
@@ -63,7 +64,7 @@ require_dir docs/submission
 
 if command -v git >/dev/null 2>&1; then
   untracked_required=''
-  for path in README.md LICENSE SECURITY.md .env.example .gitignore package.json package-lock.json tsconfig.json eslint.config.mjs next.config.ts .github/workflows/ci.yml docs/submission/PUBLIC_REPO_MANIFEST.md docs/submission/YOUTUBE_UPLOAD_METADATA.md docs/submission/USER_STORY_UI_REVIEW.md docs/submission/KAGGLE_EVALUATION_SCORECARD.md scripts/final-submission-check.sh; do
+  for path in README.md LICENSE SECURITY.md .env.example .gitignore package.json package-lock.json tsconfig.json eslint.config.mjs next.config.ts .github/workflows/ci.yml docs/submission/PUBLIC_REPO_MANIFEST.md docs/submission/DEMO_PRESENTATION.html docs/submission/YOUTUBE_UPLOAD_METADATA.md docs/submission/USER_STORY_UI_REVIEW.md docs/submission/KAGGLE_EVALUATION_SCORECARD.md scripts/final-submission-check.sh; do
     if [ -e "$path" ] && ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
       untracked_required="${untracked_required}${path}
 "
