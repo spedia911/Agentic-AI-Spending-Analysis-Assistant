@@ -3,6 +3,8 @@ import { configuredAiModel } from '../ai/defaults';
 import { listDriveFolderFiles, isSupportedDriveImage, type DriveFileMetadata } from '../google/drive';
 import { initializeSpreadsheet } from '../google/sheets';
 import { safeErrorDetail } from '../privacy/redact';
+import fs from 'fs';
+import path from 'path';
 
 export type SetupHealthStatus = 'ok' | 'warning' | 'error';
 
@@ -46,6 +48,25 @@ function overallStatus(items: SetupHealthItem[]): SetupHealthStatus {
 
 function aiModelFor(env: Env): string {
   return configuredAiModel(env);
+}
+
+function serviceAccountEmailFromKey(keyValue: string | undefined): string | null {
+  if (!keyValue) return null;
+
+  try {
+    const parsed = JSON.parse(keyValue) as { client_email?: unknown };
+    return typeof parsed.client_email === 'string' ? parsed.client_email : null;
+  } catch {
+    const keyPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), keyValue);
+    if (!fs.existsSync(keyPath)) return null;
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(keyPath, 'utf-8')) as { client_email?: unknown };
+      return typeof parsed.client_email === 'string' ? parsed.client_email : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 function aiHealth(env: Env): SetupHealthItem {
@@ -101,13 +122,16 @@ export async function runSetupHealthCheck(dependencies: SetupHealthDependencies 
   );
 
   if (env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+    const serviceAccountEmail = serviceAccountEmailFromKey(env.GOOGLE_SERVICE_ACCOUNT_KEY);
     items.push(
       item(
         'google_credentials',
         'Google credentials',
         'ok',
         'Google service-account credentials are configured.',
-        'GOOGLE_SERVICE_ACCOUNT_KEY=' + maskValue(env.GOOGLE_SERVICE_ACCOUNT_KEY)
+        serviceAccountEmail
+          ? 'Share the Drive folder and Google Sheet with: ' + serviceAccountEmail
+          : 'GOOGLE_SERVICE_ACCOUNT_KEY=' + maskValue(env.GOOGLE_SERVICE_ACCOUNT_KEY)
       )
     );
   } else {

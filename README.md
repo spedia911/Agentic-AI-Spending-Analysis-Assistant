@@ -80,7 +80,7 @@ npm run doctor
 
 ## Step 1: Create the Google Drive Folder
 
-1. Open Google Drive.
+1. Open [Google Drive](https://drive.google.com/).
 2. Create a folder, for example `Financial Screenshots MVP`.
 3. Open the folder.
 4. Copy the folder ID from the URL.
@@ -101,7 +101,7 @@ To choose which screenshots the app analyzes, put only those screenshots in this
 
 ## Step 2: Create the Google Sheet
 
-1. Create a blank Google Sheet.
+1. Create a blank Google Sheet from [sheets.new](https://sheets.new/).
 2. Copy the sheet ID from the URL.
 
 Example:
@@ -124,13 +124,13 @@ The app needs Google credentials to read Drive and write Sheets.
 
 Recommended setup for this MVP:
 
-1. Open Google Cloud Console.
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create or select a project.
 3. Enable these APIs:
-   - Google Drive API
-   - Google Sheets API
-4. Create a service account.
-5. Create a JSON key for the service account.
+   - [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)
+   - [Google Sheets API](https://console.cloud.google.com/apis/library/sheets.googleapis.com)
+4. Open [Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) and create a service account.
+5. On that service account, open **Keys**, create a JSON key, and download it.
 6. Save the JSON file as `service-account.json` in this project folder.
 
 `service-account.json` is already ignored by git. Do not commit it.
@@ -141,12 +141,19 @@ Open the JSON file and find the service account email. It looks like:
 something@your-project.iam.gserviceaccount.com
 ```
 
-Share both of these with that email:
+If you already have the app running, click **Check connections** in the dashboard. The setup checklist will show the service account email automatically when it can read `service-account.json`.
+
+Share both of these with the service account email:
 
 - The Google Drive screenshot folder.
 - The Google Sheet.
 
-Give the service account edit access to the sheet.
+Give the service account:
+
+- Viewer access to the Drive screenshot folder, or Editor access if you want it to update file metadata later.
+- Editor access to the Google Sheet.
+
+This sharing step is required. The service account is the identity the app uses when it reads Drive and writes Sheets; your personal Google account access does not automatically carry over to the app.
 
 In `.env`, use:
 
@@ -158,8 +165,8 @@ GOOGLE_SERVICE_ACCOUNT_KEY=service-account.json
 
 For Gemini:
 
-1. Open Google AI Studio.
-2. Create an API key.
+1. Open [Google AI Studio API keys](https://aistudio.google.com/apikey).
+2. Create or select an API key.
 3. Put it in `.env`.
 
 Recommended default:
@@ -225,6 +232,17 @@ LOW_CONFIDENCE_THRESHOLD=0.75
 TIMEZONE=America/Los_Angeles
 SOURCE_IMAGE_RETENTION_DAYS=30
 ```
+
+Use this checklist while filling it in:
+
+| `.env` value | Where to get it |
+| --- | --- |
+| `GOOGLE_DRIVE_FOLDER_ID` | Open the Drive screenshot folder and copy the text after `/folders/` in the URL. |
+| `GOOGLE_SHEET_ID` | Open the Google Sheet and copy the text between `/d/` and `/edit` in the URL. |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Use `service-account.json` if the downloaded key file is saved in this project folder. |
+| Service account email | Open `service-account.json` and copy `client_email`, or run **Check connections** in the app after startup. Share the Drive folder and Sheet with this email. |
+| `AI_API_KEY` | Create it at [Google AI Studio API keys](https://aistudio.google.com/apikey). |
+| `SINGLE_USER_EMAIL` | Use the email you will put in the dashboard URL, for example `http://localhost:3000?email=you@example.com`. |
 
 Restart the app after changing `.env`.
 

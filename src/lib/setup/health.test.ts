@@ -35,6 +35,10 @@ describe('runSetupHealthCheck', () => {
     expect(report.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'drive', status: 'ok', detail: '1 unsupported file(s) will be skipped.' }),
+        expect.objectContaining({
+          id: 'google_credentials',
+          detail: 'Share the Drive folder and Google Sheet with: sa@example.com',
+        }),
         expect.objectContaining({ id: 'sheets', status: 'ok' }),
         expect.objectContaining({ id: 'ai', status: 'ok' }),
       ])
