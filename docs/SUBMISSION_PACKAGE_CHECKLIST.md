@@ -12,7 +12,7 @@ Use this checklist immediately before packaging or linking the project for the K
   - `eslint.config.mjs`
   - `next.config.ts`
 - Setup and verification scripts under `scripts/`.
-- Documentation under `docs/`.
+- Documentation under `docs/`, excluding local-only recording and upload artifacts under `docs/submission/`.
 - `.env.example`.
 - `README.md`.
 - `SECURITY.md`.
@@ -25,6 +25,7 @@ Use this checklist immediately before packaging or linking the project for the K
 - Google service account JSON keys.
 - OAuth client secret files.
 - API tokens.
+- Local-only Kaggle, YouTube, OBS, PowerPoint, Google Slides, contact sheet, and media-prep artifacts under `docs/submission/`.
 - Cached financial screenshots under `data/private/`.
 - Raw source images under `data/raw/`.
 - Generated exports under `data/exports/`.
@@ -101,16 +102,14 @@ Point reviewers to these files:
 - [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md): five-minute demo script.
 - [CAPSTONE_READINESS_AUDIT.md](CAPSTONE_READINESS_AUDIT.md): requirement-to-evidence map.
 - [google-photos-picker-evaluation.md](references/google-photos-picker-evaluation.md): why Photos is deferred and how it would be added.
-- [KAGGLE_WRITEUP_DRAFT.md](submission/KAGGLE_WRITEUP_DRAFT.md): paste-ready Kaggle Writeup draft under the 2,500-word limit.
-- [ARCHITECTURE_AND_RUBRIC.md](submission/ARCHITECTURE_AND_RUBRIC.md): judge-facing architecture and evaluation evidence map.
-- [KAGGLE_EVALUATION_SCORECARD.md](submission/KAGGLE_EVALUATION_SCORECARD.md): point-by-point Kaggle evaluation mapping.
-- [USER_STORY_UI_REVIEW.md](submission/USER_STORY_UI_REVIEW.md): user-story trace, UI gap review, and demo shot checklist.
-- [COURSE_CONCEPT_COVERAGE.md](submission/COURSE_CONCEPT_COVERAGE.md): required course-concept coverage and non-claims.
-- [VIDEO_SCRIPT.md](submission/VIDEO_SCRIPT.md): YouTube demo narration and shot list.
-- [MEDIA_GALLERY_PLAN.md](submission/MEDIA_GALLERY_PLAN.md): cover image, screenshots, and privacy checklist.
-- [YOUTUBE_UPLOAD_METADATA.md](submission/YOUTUBE_UPLOAD_METADATA.md): upload title, description, chapters, tags, Public visibility, and video privacy checklist.
-- [FINAL_KAGGLE_FORM_CHECKLIST.md](submission/FINAL_KAGGLE_FORM_CHECKLIST.md): final Kaggle fields and submit-time checks.
-- [PUBLIC_REPO_MANIFEST.md](submission/PUBLIC_REPO_MANIFEST.md): public repository include/exclude manifest.
+
+Keep these local-only assets outside the public repository under `docs/submission/` when preparing the final upload:
+
+- Kaggle Writeup draft and final form notes.
+- YouTube title, description, chapters, and visibility checklist.
+- OBS/PowerPoint/Google Slides recording decks, exported slide images, and contact sheets.
+- Cover image, architecture visual, screenshots, and other Media Gallery prep files.
+- Course-concept, scorecard, and UI-review notes that are useful for recording but not required as public repo files.
 
 ## Suggested Submission Summary
 
@@ -126,8 +125,8 @@ Use or adapt this text:
 4. Seed safe demo data with the dashboard **Seed demo data** button.
 5. Show setup health, action center, staged import include/exclude, Next Best Actions, Spending Explorer, cash-flow table, anomaly decisions, source-file audit, source evidence page, and `/review`.
 6. Briefly describe the full Drive workflow with `maxDocuments` and force-reprocess guardrails.
-7. Use `docs/submission/cover-image.svg` as the Media Gallery cover image or export it to PNG.
-8. Include `docs/submission/architecture-diagram.svg` in the Writeup or video as the architecture visual.
+7. Use the local cover image or slide export from `docs/submission/` for the Kaggle Media Gallery, but do not commit it.
+8. Include the local architecture visual in the Writeup or video, or summarize the architecture from [CAPSTONE_READINESS_AUDIT.md](CAPSTONE_READINESS_AUDIT.md).
 
 ## Final Manual Checks
 
@@ -135,17 +134,18 @@ Use or adapt this text:
 - Confirm `npm run package:check` passes before publishing the repository.
 - Confirm service account files are not staged or packaged.
 - Confirm `data/private/` is not staged or packaged.
+- Confirm `docs/submission/` is not staged or packaged.
 - Confirm no screenshot contains private financial details.
 - Confirm `docs/MVP_SUBMISSION.md` verification counts match the latest `npm run verify` output.
 - Confirm `npm run verify:ci` passes before publishing the repository.
-- Confirm `docs/submission/KAGGLE_WRITEUP_DRAFT.md` stays under 2,500 words after edits.
+- Confirm any local Kaggle Writeup draft stays under 2,500 words after edits.
 - Confirm the final YouTube video is 5 minutes or less and attached to the Kaggle Media Gallery.
-- Confirm the YouTube upload uses [YOUTUBE_UPLOAD_METADATA.md](submission/YOUTUBE_UPLOAD_METADATA.md), is set to Public, and includes the public project link.
+- Confirm the YouTube upload uses the local metadata checklist, is set to Public, and includes the public project link.
 - Confirm the public project link points to either a public repository with setup instructions or a safe hosted demo.
 - Confirm `npm run submission:final` passes after setting the final project/video environment values.
-- Confirm the public repository satisfies [PUBLIC_REPO_MANIFEST.md](submission/PUBLIC_REPO_MANIFEST.md).
-- Confirm [USER_STORY_UI_REVIEW.md](submission/USER_STORY_UI_REVIEW.md) still matches the final UI shown in the video.
-- Confirm [KAGGLE_EVALUATION_SCORECARD.md](submission/KAGGLE_EVALUATION_SCORECARD.md) still matches the final Writeup and video.
+- Confirm the public repository satisfies the include/exclude list in this checklist.
+- Confirm any local user-story/UI review notes still match the final UI shown in the video.
+- Confirm any local evaluation scorecard notes still match the final Writeup and video.
 - Confirm the Kaggle Writeup has the Concierge Agents track selected before submitting.
 - Confirm the Kaggle Writeup is submitted, not left as a draft.
 - Confirm no unintended private Kaggle Resources are attached to the public Writeup.

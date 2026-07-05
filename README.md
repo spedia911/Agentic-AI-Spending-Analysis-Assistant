@@ -11,7 +11,7 @@ It reads financial screenshots from a Google Drive folder, extracts transactions
 - Full local evaluation: configure `.env`, then run `npm run verify`.
 - Final external submission check: after publishing the project link and YouTube video, run `npm run submission:final` with the Kaggle URL environment values from the final checklist.
 - Demo without private screenshots: start the app, open `/?email=YOUR_CONFIGURED_EMAIL`, and click **Seed demo data**.
-- Required submission assets are in [docs/submission](docs/submission): writeup draft, video script, YouTube upload metadata, user-story/UI review, evaluation scorecard, media plan, course-concept coverage, architecture/rubric evidence, cover image, and final Kaggle form checklist.
+- Recording and upload assets can be prepared locally under `docs/submission/`, but that folder is ignored by git and is not required for public repository review.
 - Public-link guidance is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); security and privacy notes are in [SECURITY.md](SECURITY.md).
 
 ## What Works Today
@@ -516,15 +516,7 @@ export PATH="/path/to/node/bin:$PATH"
 - [docs/CAPSTONE_READINESS_AUDIT.md](docs/CAPSTONE_READINESS_AUDIT.md): requirement-to-evidence submission audit.
 - [docs/SUBMISSION_PACKAGE_CHECKLIST.md](docs/SUBMISSION_PACKAGE_CHECKLIST.md): final include/exclude checklist before upload.
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): public project link and optional hosted demo guidance.
-- [docs/submission/KAGGLE_WRITEUP_DRAFT.md](docs/submission/KAGGLE_WRITEUP_DRAFT.md): paste-ready Kaggle Writeup draft.
-- [docs/submission/ARCHITECTURE_AND_RUBRIC.md](docs/submission/ARCHITECTURE_AND_RUBRIC.md): architecture and evaluation evidence map.
-- [docs/submission/KAGGLE_EVALUATION_SCORECARD.md](docs/submission/KAGGLE_EVALUATION_SCORECARD.md): point-by-point Kaggle evaluation mapping.
-- [docs/submission/USER_STORY_UI_REVIEW.md](docs/submission/USER_STORY_UI_REVIEW.md): MVP user-story trace, UI gap review, and demo shot checklist.
-- [docs/submission/COURSE_CONCEPT_COVERAGE.md](docs/submission/COURSE_CONCEPT_COVERAGE.md): required course-concept coverage and non-claims.
-- [docs/submission/VIDEO_SCRIPT.md](docs/submission/VIDEO_SCRIPT.md): five-minute YouTube demo script.
-- [docs/submission/MEDIA_GALLERY_PLAN.md](docs/submission/MEDIA_GALLERY_PLAN.md): cover image, screenshot, and privacy plan.
-- [docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md](docs/submission/FINAL_KAGGLE_FORM_CHECKLIST.md): submit-time Kaggle form checklist.
-- [docs/submission/PUBLIC_REPO_MANIFEST.md](docs/submission/PUBLIC_REPO_MANIFEST.md): public repository include/exclude manifest.
+- `docs/submission/`: optional local-only workspace for Kaggle writeup drafts, recording decks, YouTube metadata, contact sheets, and media assets. This folder is intentionally ignored by git.
 - [docs/references/google-photos-picker-evaluation.md](docs/references/google-photos-picker-evaluation.md): Google Photos Picker evaluation and future extension plan.
 - [docs/MVP_SUBMISSION.md](docs/MVP_SUBMISSION.md): capstone submission notes.
 - [.env.example](.env.example): environment variable template.

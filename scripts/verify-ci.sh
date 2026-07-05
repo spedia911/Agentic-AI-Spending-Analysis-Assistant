@@ -25,7 +25,7 @@ run_step() {
 
 run_step "Submission privacy check" sh scripts/privacy-check.sh
 run_step "Public package manifest check" sh scripts/package-check.sh
-run_step "Submission docs check" sh scripts/docs-check.sh
+run_step "Reviewer docs check" sh scripts/docs-check.sh
 run_step "Unit and integration tests" npm test
 run_step "TypeScript type check" npx tsc --noEmit
 run_step "Lint" npm run lint

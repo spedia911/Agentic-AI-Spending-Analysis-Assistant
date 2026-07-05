@@ -34,6 +34,7 @@ data/private/
 data/exports/
 artifacts/
 screenshots/
+docs/submission/
 *.log
 
 # Package manager logs

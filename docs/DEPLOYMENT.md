@@ -10,7 +10,7 @@ Why:
 
 - The app depends on private Google Drive, Google Sheets, service-account credentials, and an AI API key.
 - The safest judge path is a public repo with clear setup docs, a sanitized demo seed path, and a short video showing the working product.
-- The repository includes `README.md`, `.env.example`, `npm run verify`, a writeup draft, video script, media plan, and architecture evidence.
+- The repository includes `README.md`, `.env.example`, `npm run verify`, public reviewer docs, and a sanitized demo path. Keep writeup drafts, video scripts, and upload metadata local-only under `docs/submission/`, then paste or upload them directly to Kaggle and YouTube.
 
 Public project link format:
 
@@ -82,10 +82,11 @@ Make sure the repository includes:
 - `.env.example`.
 - `.github/workflows/ci.yml` running `npm run verify:ci`.
 - [SUBMISSION_PACKAGE_CHECKLIST.md](SUBMISSION_PACKAGE_CHECKLIST.md).
-- [KAGGLE_WRITEUP_DRAFT.md](submission/KAGGLE_WRITEUP_DRAFT.md).
-- [VIDEO_SCRIPT.md](submission/VIDEO_SCRIPT.md).
-- [ARCHITECTURE_AND_RUBRIC.md](submission/ARCHITECTURE_AND_RUBRIC.md).
+- [MVP_SUBMISSION.md](MVP_SUBMISSION.md).
+- [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md).
+- [CAPSTONE_READINESS_AUDIT.md](CAPSTONE_READINESS_AUDIT.md).
 - A successful latest `npm run verify` result in your final submission notes.
+- Local-only Kaggle writeup, YouTube metadata, recording decks, contact sheets, and media assets prepared outside git under `docs/submission/`.
 
 In the Kaggle Writeup, say:
 

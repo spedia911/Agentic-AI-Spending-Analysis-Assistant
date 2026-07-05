@@ -51,20 +51,25 @@ require_file tsconfig.json
 require_file eslint.config.mjs
 require_file next.config.ts
 require_file .github/workflows/ci.yml
-require_file docs/submission/PUBLIC_REPO_MANIFEST.md
-require_file docs/submission/DEMO_PRESENTATION.html
-require_file docs/submission/YOUTUBE_UPLOAD_METADATA.md
-require_file docs/submission/USER_STORY_UI_REVIEW.md
-require_file docs/submission/KAGGLE_EVALUATION_SCORECARD.md
+require_file docs/MVP_SUBMISSION.md
+require_file docs/DEMO_WALKTHROUGH.md
+require_file docs/CAPSTONE_READINESS_AUDIT.md
+require_file docs/SUBMISSION_PACKAGE_CHECKLIST.md
+require_file docs/DEPLOYMENT.md
 require_file scripts/final-submission-check.sh
 require_dir scripts
 require_dir src
 require_dir docs
-require_dir docs/submission
+
+if grep -Fx 'docs/submission/' .gitignore >/dev/null 2>&1; then
+  ok "docs/submission/ is ignored as a local-only submission workspace."
+else
+  fail "docs/submission/ should be ignored in .gitignore."
+fi
 
 if command -v git >/dev/null 2>&1; then
   untracked_required=''
-  for path in README.md LICENSE SECURITY.md .env.example .gitignore package.json package-lock.json tsconfig.json eslint.config.mjs next.config.ts .github/workflows/ci.yml docs/submission/PUBLIC_REPO_MANIFEST.md docs/submission/DEMO_PRESENTATION.html docs/submission/YOUTUBE_UPLOAD_METADATA.md docs/submission/USER_STORY_UI_REVIEW.md docs/submission/KAGGLE_EVALUATION_SCORECARD.md scripts/final-submission-check.sh; do
+  for path in README.md LICENSE SECURITY.md .env.example .gitignore package.json package-lock.json tsconfig.json eslint.config.mjs next.config.ts .github/workflows/ci.yml docs/MVP_SUBMISSION.md docs/DEMO_WALKTHROUGH.md docs/CAPSTONE_READINESS_AUDIT.md docs/SUBMISSION_PACKAGE_CHECKLIST.md docs/DEPLOYMENT.md scripts/final-submission-check.sh; do
     if [ -e "$path" ] && ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
       untracked_required="${untracked_required}${path}
 "

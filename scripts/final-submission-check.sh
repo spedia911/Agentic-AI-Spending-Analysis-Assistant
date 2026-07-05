@@ -121,12 +121,12 @@ fi
 if [ -f docs/submission/KAGGLE_WRITEUP_DRAFT.md ]; then
   writeup_words=$(wc -w < docs/submission/KAGGLE_WRITEUP_DRAFT.md | tr -d ' ')
   if [ "$writeup_words" -le 2500 ]; then
-    ok "Kaggle writeup draft is under 2,500 words ($writeup_words words)."
+    ok "Local-only Kaggle writeup draft is under 2,500 words ($writeup_words words)."
   else
-    fail "Kaggle writeup draft is over 2,500 words ($writeup_words words)."
+    fail "Local-only Kaggle writeup draft is over 2,500 words ($writeup_words words)."
   fi
 else
-  fail "docs/submission/KAGGLE_WRITEUP_DRAFT.md is missing."
+  ok "Local-only Kaggle writeup draft is not present; relying on KAGGLE_WRITEUP_READY_CONFIRMED."
 fi
 
 printf '\nFinal external submission check complete: %s errors.\n' "$error_count"
