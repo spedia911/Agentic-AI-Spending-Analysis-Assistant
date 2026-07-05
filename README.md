@@ -70,12 +70,12 @@ Before starting the app, run this from the project folder:
 
 ```powershell
 Set-Location "C:\path\to\Agentic-AI-Spending-Analysis-Assistant"
-npm run doctor
+npm.cmd run doctor
 ```
 
 It checks for Node, npm, installed dependencies, `.env`, required environment values, and the configured service-account key file without printing secrets.
 
-On Windows, the npm scripts use small shell helpers. If PowerShell says `sh` is not recognized, install [Git for Windows](https://git-scm.com/download/win), open Git Bash in the project folder, and rerun the same npm command.
+Use `npm.cmd` in PowerShell because some Windows installs block the `npm.ps1` shim with an execution-policy error. In Command Prompt, Git Bash, macOS, or Linux, use `npm run doctor`.
 
 ## Step 1: Create the Google Drive Folder
 
@@ -248,9 +248,9 @@ On Windows PowerShell:
 
 ```powershell
 Set-Location "C:\path\to\Agentic-AI-Spending-Analysis-Assistant"
-npm install
-npm run doctor
-npm run dev
+npm.cmd install
+npm.cmd run doctor
+npm.cmd run dev
 ```
 
 On macOS, Linux, or Git Bash:
@@ -264,7 +264,7 @@ npm run dev
 
 Keep that terminal open.
 
-If `npm` or `node` is not found, install Node 24 LTS from [nodejs.org](https://nodejs.org/). On Windows, also install [Git for Windows](https://git-scm.com/download/win) if `npm run doctor` or `npm run dev` says `sh` is not recognized.
+If `npm` or `node` is not found, install Node 24 LTS from [nodejs.org](https://nodejs.org/). If PowerShell says `npm.ps1 cannot be loaded because running scripts is disabled`, use the `npm.cmd` commands above.
 
 Then open the dashboard with your real email:
 
@@ -448,7 +448,7 @@ If `npm install` does not work:
 
 - Check `node -v` and `npm -v`.
 - Install Node 24 LTS from [nodejs.org](https://nodejs.org/).
-- On Windows, install Git for Windows if npm scripts cannot find `sh`.
+- In PowerShell, use `npm.cmd install` instead of `npm install` if Windows blocks `npm.ps1`.
 
 If `.env` changes do not apply:
 
@@ -459,9 +459,13 @@ If `.env` changes do not apply:
 
 Run this before submitting from your configured local environment:
 
+On macOS, Linux, or Git Bash:
+
 ```bash
 npm run verify
 ```
+
+On Windows, use Git Bash for the full verification wrapper because it runs shell-based privacy, package, and docs checks. PowerShell is fine for starting the app with `npm.cmd run dev`.
 
 That command includes the private preflight check for your real `.env`, Drive folder, Google Sheet, service account, AI key, and single-user email. It then runs the same gates individually listed below:
 

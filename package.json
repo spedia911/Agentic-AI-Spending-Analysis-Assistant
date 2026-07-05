@@ -4,10 +4,10 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "sh scripts/dev.sh",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start",
-    "doctor": "sh scripts/preflight.sh",
+    "doctor": "node scripts/preflight.mjs",
     "docs:check": "sh scripts/docs-check.sh",
     "package:check": "sh scripts/package-check.sh",
     "privacy:check": "sh scripts/privacy-check.sh",
