@@ -1,6 +1,6 @@
 # Agentic AI Spending Analysis Assistant
 
-This is a Drive-first personal finance assistant for the Kaggle Vibe Coding Capstone Project.
+This is a Drive-first personal finance assistant built for the Kaggle Vibe Coding Capstone.
 
 It reads financial screenshots from a Google Drive folder, extracts transactions and balances with an AI vision model, writes structured rows to Google Sheets, and shows a single-user dashboard for monthly spending, asset context, and correction guidance.
 
@@ -68,15 +68,14 @@ The Drive folder can be empty at first. The Google Sheet can also be blank. The 
 
 Before starting the app, run this from the project folder:
 
-```bash
-sh scripts/preflight.sh
-```
-
-It checks for Node, npm, installed dependencies, `.env`, required environment values, and the configured service-account key file without printing secrets. If npm is already available, this also works:
-
-```bash
+```powershell
+Set-Location "C:\path\to\Agentic-AI-Spending-Analysis-Assistant"
 npm run doctor
 ```
+
+It checks for Node, npm, installed dependencies, `.env`, required environment values, and the configured service-account key file without printing secrets.
+
+On Windows, the npm scripts use small shell helpers. If PowerShell says `sh` is not recognized, install [Git for Windows](https://git-scm.com/download/win), open Git Bash in the project folder, and rerun the same npm command.
 
 ## Step 1: Create the Google Drive Folder
 
@@ -193,28 +192,23 @@ Do not include the `models/` prefix.
 
 ## Step 5: Create the `.env` File
 
-From the project folder:
+From the project folder in Windows PowerShell:
+
+```powershell
+Set-Location "C:\path\to\Agentic-AI-Spending-Analysis-Assistant"
+Copy-Item .env.example .env
+notepad .env
+```
+
+On macOS, Linux, or Git Bash:
 
 ```bash
-cd "/path/to/Kaggle Vibe Coding Capstone Project"
+cd "/path/to/Agentic-AI-Spending-Analysis-Assistant"
 cp .env.example .env
-```
-
-The template already selects the recommended Gemini provider and model. Fill in your Drive, Sheet, service-account, AI key, and email values.
-
-Open it with TextEdit:
-
-```bash
-open -a TextEdit .env
-```
-
-If that does not work:
-
-```bash
 nano .env
 ```
 
-In `nano`, save with `Control + O`, press `Enter`, then exit with `Control + X`.
+The template already selects the recommended Gemini provider and model. Fill in your Drive, Sheet, service-account, AI key, and email values. In `nano`, save with `Control + O`, press `Enter`, then exit with `Control + X`.
 
 Your `.env` should look like this, with your real values:
 
@@ -248,36 +242,29 @@ Restart the app after changing `.env`.
 
 ## Step 6: Start the App
 
-If you have not run the preflight yet:
+Use Node 20-24 when possible. Node 26 can trigger a Next.js development-stream cloning error; `npm run dev` will use a compatible bundled runtime when one is available.
 
-```bash
-cd "/path/to/Kaggle Vibe Coding Capstone Project"
-sh scripts/preflight.sh
+On Windows PowerShell:
+
+```powershell
+Set-Location "C:\path\to\Agentic-AI-Spending-Analysis-Assistant"
+npm install
+npm run doctor
+npm run dev
 ```
 
-If your computer has Node and npm, use Node 20-24 when possible. Node 26 can trigger a Next.js development-stream cloning error; `npm run dev` will use a compatible local runtime when one is available.
+On macOS, Linux, or Git Bash:
 
 ```bash
-cd "/path/to/Kaggle Vibe Coding Capstone Project"
+cd "/path/to/Agentic-AI-Spending-Analysis-Assistant"
 npm install
+npm run doctor
 npm run dev
 ```
 
 Keep that terminal open.
 
-If `npm` or `node` is not found, install Node:
-
-```bash
-brew install node
-```
-
-Or use the bundled Codex Node runtime:
-
-```bash
-cd "/path/to/Kaggle Vibe Coding Capstone Project"
-export PATH="/path/to/node/bin:$PATH"
-npm run dev
-```
+If `npm` or `node` is not found, install Node 24 LTS from [nodejs.org](https://nodejs.org/). On Windows, also install [Git for Windows](https://git-scm.com/download/win) if `npm run doctor` or `npm run dev` says `sh` is not recognized.
 
 Then open the dashboard with your real email:
 
@@ -460,7 +447,8 @@ If Drive finds no files:
 If `npm install` does not work:
 
 - Check `node -v` and `npm -v`.
-- Install Node with `brew install node`, or use the bundled runtime command above.
+- Install Node 24 LTS from [nodejs.org](https://nodejs.org/).
+- On Windows, install Git for Windows if npm scripts cannot find `sh`.
 
 If `.env` changes do not apply:
 
@@ -478,10 +466,10 @@ npm run verify
 That command includes the private preflight check for your real `.env`, Drive folder, Google Sheet, service account, AI key, and single-user email. It then runs the same gates individually listed below:
 
 ```bash
-sh scripts/preflight.sh
-sh scripts/privacy-check.sh
-sh scripts/package-check.sh
-sh scripts/docs-check.sh
+npm run doctor
+npm run privacy:check
+npm run package:check
+npm run docs:check
 npm test
 npx tsc --noEmit
 npm run lint
@@ -495,12 +483,6 @@ npm run verify:ci
 ```
 
 That CI-safe command skips private credential preflight, sets harmless placeholder environment values for build-time checks, and still runs privacy checks, docs checks, tests, type check, lint, and production build.
-
-If you are using the bundled Node runtime, prefix the commands with:
-
-```bash
-export PATH="/path/to/node/bin:$PATH"
-```
 
 ## Repo Map
 
