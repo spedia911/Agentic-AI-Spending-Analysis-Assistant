@@ -4,6 +4,8 @@
 
 Agentic AI Spending Analysis Assistant
 
+> **v2 product direction:** local-first iOS app (no Google Drive/Sheets required). See [`docs/specs/002-ios-local/prd-delta.md`](specs/002-ios-local/prd-delta.md). This PRD describes the original v1 web/Google MVP kept as a reference.
+
 ## Problem
 
 Monthly personal spending review is slow and error-prone. A user often has screenshots of credit card spending and bank activity, but turning those images into category totals, recurring payment checks, and asset trend insight requires manual review.

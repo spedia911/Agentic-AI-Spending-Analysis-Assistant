@@ -1,0 +1,49 @@
+name: SpendingAssistant
+options:
+  bundleIdPrefix: com.spendingassistant
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  BASE_SDK: iphoneos
+  SWIFT_VERSION: "5.9"
+  TARGETED_DEVICE_FAMILY: "1"
+packages:
+  SpendingDomain:
+    path: Packages/SpendingDomain
+targets:
+  SpendingAssistant:
+    type: application
+    platform: iOS
+    sources:
+      - path: SpendingAssistant
+    resources:
+      - path: SpendingAssistant/Resources/sample-extraction.json
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.spendingassistant.app
+      INFOPLIST_FILE: SpendingAssistant/Resources/Info.plist
+      CODE_SIGN_ENTITLEMENTS: SpendingAssistant/Resources/SpendingAssistant.entitlements
+    dependencies:
+      - package: SpendingDomain
+      - target: ShareExtension
+    info:
+      path: SpendingAssistant/Resources/Info.plist
+  ShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.spendingassistant.app.share
+      INFOPLIST_FILE: ShareExtension/Info.plist
+      CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+    info:
+      path: ShareExtension/Info.plist
+schemes:
+  SpendingAssistant:
+    build:
+      targets:
+        SpendingAssistant: all
+        ShareExtension: all
+    run:
+      config: Debug
