@@ -34,9 +34,9 @@ require "$ROOT/ShareExtension/ShareViewController.swift"
 require "$ROOT/project.yml"
 require "$ROOT/README.md"
 
-python3 - <<'PY'
-import json, pathlib, sys
-p = pathlib.Path("/workspace/ios/SpendingAssistant/Resources/sample-extraction.json")
+SAMPLE_JSON="$ROOT/SpendingAssistant/Resources/sample-extraction.json" python3 - <<'PY'
+import json, os, pathlib
+p = pathlib.Path(os.environ["SAMPLE_JSON"])
 data = json.loads(p.read_text())
 assert data["transactions"], "sample must include transactions"
 assert "source_document_id" in data
