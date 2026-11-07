@@ -1,8 +1,16 @@
 # Agentic AI Spending Analysis Assistant
 
-This is a Drive-first personal finance assistant built for the Kaggle Vibe Coding Capstone.
+## Current direction (v2): Local-First iOS
 
-It reads financial screenshots from a Google Drive folder, extracts transactions and balances with an AI vision model, writes structured rows to Google Sheets, and shows a single-user dashboard for monthly spending, asset context, and correction guidance.
+The active product path is a **local-first iOS app** under [`ios/`](ios/). It replaces Google Drive and Google Sheets with on-device import + SwiftData, uses Apple Vision (and optional Foundation Models) for screenshot extraction, and accepts Share/paste JSON from ChatGPT / Claude / Grok as a fallback.
+
+- Specs: [`docs/specs/002-ios-local/`](docs/specs/002-ios-local/)
+- App guide: [`ios/README.md`](ios/README.md)
+- Domain package: [`ios/Packages/SpendingDomain`](ios/Packages/SpendingDomain)
+
+## Reference MVP (v1): Drive + Sheets web app
+
+The TypeScript Next.js app below remains as a **reference implementation** (algorithm parity and historical Kaggle Capstone demos). It is Drive-first: screenshots from a Google Drive folder, cloud vision extraction, Google Sheets storage, and a single-user web dashboard.
 
 ## For Kaggle Reviewers
 

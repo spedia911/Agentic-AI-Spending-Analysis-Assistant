@@ -1,0 +1,43 @@
+{
+  "source_document_id": "sample_ai_import_001",
+  "screenshot_kind": "credit_card",
+  "raw_text": "03/02 SAFEWAY #1234 45.67\n03/03 BLUE BOTTLE 6.50\nAvailable credit 1200.00",
+  "extraction_confidence": 0.86,
+  "transactions": [
+    {
+      "row_index": 0,
+      "date_text": "2026-03-02",
+      "merchant_text": "Safeway #1234",
+      "amount_text": "45.67",
+      "account_source_text": "Chase 123456789",
+      "transaction_type_hint": "expense",
+      "confidence": 0.9,
+      "evidence_text": "03/02 SAFEWAY #1234 45.67",
+      "evidence_region": null
+    },
+    {
+      "row_index": 1,
+      "date_text": "2026-03-03",
+      "merchant_text": "Blue Bottle",
+      "amount_text": "6.50",
+      "account_source_text": "Chase 123456789",
+      "transaction_type_hint": "expense",
+      "confidence": 0.7,
+      "evidence_text": "03/03 BLUE BOTTLE 6.50",
+      "evidence_region": null
+    }
+  ],
+  "asset_snapshots": [
+    {
+      "row_index": 0,
+      "account_label_text": "Chase *6789",
+      "balance_text": "1200.00",
+      "balance_type_hint": "credit_available",
+      "observed_date_text": "2026-03-03",
+      "confidence": 0.8,
+      "evidence_text": "Available credit 1200.00",
+      "evidence_region": null
+    }
+  ],
+  "warnings": []
+}
