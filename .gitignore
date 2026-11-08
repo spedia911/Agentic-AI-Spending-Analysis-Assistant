@@ -50,6 +50,7 @@ pnpm-debug.log*
 # Xcode / iOS
 ios/**/xcuserdata/
 ios/**/DerivedData/
+ios/**/.build/
 ios/*.xcworkspace/xcuserdata/
 ios/SpendingAssistant.xcodeproj/
 ios/*.xcuserdata

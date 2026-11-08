@@ -40,3 +40,35 @@
 3. Tap **Seed demo data** on Home, or Import → paste sample JSON from Resources.
 4. Open Review, resolve one category, confirm Home insights update.
 5. Settings → Export backup.
+
+## Further work (post-MVP backlog)
+
+### Product / UX
+- [ ] Harden real-screenshot OCR on bank/credit-card layouts (multi-column, Korean/English mixed)
+- [ ] Wire Foundation Models structurizer + category classifier for real on-device calls (replace no-op stubs)
+- [ ] Improve Review UX (batch resolve, severity filters, dollar impact ranking like v1 web)
+- [ ] Asset trend charts on Home (generator exists; UI mostly cash-flow + categories today)
+- [ ] Face ID lock / privacy screen before showing balances
+- [ ] Onboarding: copyable AI prompt + first-import walkthrough
+
+### Ingestion
+- [ ] Drain Share Extension inbox with user-visible “Imported from Share” toast/history
+- [ ] Files/Photos multi-select progress + per-file error surfacing
+- [ ] Optional Shortcuts / App Intent for “Import AI JSON”
+
+### Data / reliability
+- [ ] Prevent Xcode from stripping Share Extension / app Info.plist keys (or move keys into build settings)
+- [ ] Check in or document regenerating `SpendingAssistant.xcodeproj` so clones don’t depend on ad-hoc local state
+- [ ] Add `ios/**/.build/` to ignore hygiene if not already covered
+- [ ] CSV export alongside JSON backup
+- [ ] One-time import from v1 Sheets/CSV export (optional migration)
+
+### Quality
+- [ ] Run XCUITest smoke: seed → review → import sample JSON → export
+- [ ] Device TestFlight build with App Group + unique bundle IDs under your team
+- [ ] Real-device OCR accuracy pass on personal (non-committed) screenshots
+
+### Cleanup
+- [ ] Decide fate of Next.js Google MVP (`src/`): archive folder vs keep as algorithm reference only
+- [ ] Close or merge GitHub PR #1 after local main is updated
+- [ ] Bump XcodeGen `SWIFT_VERSION` in `ios/project.yml` to match tools 6.0 package
