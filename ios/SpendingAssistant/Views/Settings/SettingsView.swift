@@ -15,7 +15,7 @@ struct SettingsView: View {
             Form {
                 Section("On-device AI") {
                     Toggle("Use Foundation Models when available", isOn: $enableFoundationModels)
-                    Text("When unavailable, Vision OCR + rules + AI JSON import still work offline.")
+                    Text("This build uses Vision OCR, rules, and manual AI JSON import. Foundation Models adapters are reserved for a future update.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

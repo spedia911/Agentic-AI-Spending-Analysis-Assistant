@@ -1,127 +1,118 @@
 import SwiftUI
-import SwiftData
 import PhotosUI
 import UniformTypeIdentifiers
 import UIKit
 import SpendingDomain
 
 struct ImportView: View {
-    @Environment(\.modelContext) private var modelContext
-    @AppStorage("enableFoundationModels") private var enableFoundationModels = true
-
+    @Environment(ImportCoordinator.self) private var imports
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var aiJSON = ""
     @State private var message: String?
-    @State private var isBusy = false
     @State private var showImporter = false
 
     var body: some View {
         NavigationStack {
             Form {
+                if imports.isBusy {
+                    Section("Importing") {
+                        ProgressView(value: Double(imports.completed), total: Double(max(imports.total, 1)))
+                        Text("\(imports.completed) of \(imports.total) completed")
+                    }
+                }
                 Section("Screenshots") {
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 8, matching: .images) {
                         Label("Choose from Photos", systemImage: "photo")
                     }
                     .onChange(of: pickerItems) { _, items in
+                        guard !items.isEmpty else { return }
                         Task { await importPhotos(items) }
                     }
                     Button("Choose from Files") { showImporter = true }
-                    Text("On-device Vision OCR runs first. Foundation Models structure incomplete OCR when available.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                    Text("Vision OCR runs on your device. Uncertain records go to Review; AI JSON can repair an unsuccessful extraction.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }.disabled(imports.isBusy)
 
                 Section("AI app JSON import") {
-                    Text("Copy the extraction prompt into ChatGPT, Claude, or Grok, then paste the JSON here.")
-                        .font(.footnote)
+                    Text("Use the extraction prompt with ChatGPT, Claude, or Grok, then paste its JSON here.").font(.footnote)
                     Button("Copy extraction prompt") {
-                        UIPasteboard.general.string = ExtractionPrompts.mixedPrompt(
-                            sourceDocumentId: "replace-me",
-                            fileName: "screenshot.png"
-                        )
+                        UIPasteboard.general.string = ExtractionPrompts.mixedPrompt(sourceDocumentId: "replace-me", fileName: "screenshot.png")
                         message = "Prompt copied."
                     }
-                    TextEditor(text: $aiJSON)
-                        .frame(minHeight: 140)
+                    TextEditor(text: $aiJSON).frame(height: 160).accessibilityIdentifier("aiJSONEditor")
                     Button("Import pasted JSON") {
-                        Task { await importJSON() }
+                        let text = aiJSON
+                        Task {
+                            let results = await imports.run([ImportJob(name: "ai-import.json") { .json(text, sourceType: .aiImport) }])
+                            if results.first?.status != .failed { aiJSON = "" }
+                        }
+                    }.disabled(aiJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Load sample JSON") {
+                        if let url = Bundle.main.url(forResource: "sample-extraction", withExtension: "json") {
+                            do { aiJSON = try String(contentsOf: url, encoding: .utf8) }
+                            catch { message = PrivacyRedactor.safeErrorDetail(error) }
+                        }
                     }
-                    .disabled(aiJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isBusy)
-                    if let sample = loadSampleJSON() {
-                        Button("Load sample JSON") { aiJSON = sample }
+                }.disabled(imports.isBusy)
+
+                if !imports.outcomes.isEmpty {
+                    Section("Latest batch") {
+                        Text(imports.summary).accessibilityIdentifier("importSummary")
+                        ForEach(imports.outcomes) { outcome in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(outcome.fileName)
+                                Text(outcome.error ?? (outcome.status == .alreadyImported ? "Already imported" : "Imported"))
+                                    .font(.caption).foregroundStyle(outcome.status == .failed ? .orange : .secondary)
+                            }
+                        }
                     }
                 }
-
-                if let message {
-                    Section {
-                        Text(message)
+                if let message { Section { Text(message) } }
+                if let message = imports.shareMessage { Section("From Share") { Text(message) } }
+                if !imports.shareFailures.isEmpty {
+                    Section("Share items needing attention") {
+                        ForEach(imports.shareFailures) { item in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(item.url.lastPathComponent)
+                                Text(item.error ?? "Import failed.").font(.caption).foregroundStyle(.orange)
+                                HStack {
+                                    Button("Retry") { Task { await imports.retryShare(item) } }
+                                    Button("Delete pending attachment", role: .destructive) { imports.deleteShare(item) }
+                                }.buttonStyle(.bordered).disabled(imports.isBusy)
+                            }
+                        }
                     }
                 }
             }
             .navigationTitle("Import")
-            .disabled(isBusy)
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
-                Task { await importFiles(result) }
+                switch result {
+                case let .success(urls):
+                    Task {
+                        await imports.run(urls.map { url in
+                            ImportJob(name: url.lastPathComponent) {
+                                let scoped = url.startAccessingSecurityScopedResource()
+                                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                                // Some picker URLs are already accessible and do not require a scope.
+                                let data = try Data(contentsOf: url)
+                                return .image(data, mimeType: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "image/jpeg", sourceType: .files)
+                            }
+                        })
+                    }
+                case let .failure(error): message = PrivacyRedactor.safeErrorDetail(error)
+                }
             }
         }
-    }
-
-    private func service() -> ImportPipelineService {
-        ImportPipelineService(store: LocalStore(modelContext: modelContext), enableFoundationModels: enableFoundationModels)
     }
 
     private func importPhotos(_ items: [PhotosPickerItem]) async {
-        isBusy = true
-        defer { isBusy = false; pickerItems = [] }
-        do {
-            for item in items {
-                if let data = try await item.loadTransferable(type: Data.self) {
-                    let name = "photo-\(UUID().uuidString.prefix(8)).jpg"
-                    _ = try await service().importImage(data: data, fileName: name, mimeType: "image/jpeg", sourceType: .photos)
-                }
+        await imports.run(items.enumerated().map { index, item in
+            let type = item.supportedContentTypes.first(where: { $0.conforms(to: .image) })
+            return ImportJob(name: "Photo \(index + 1).\(type?.preferredFilenameExtension ?? "jpg")") {
+                guard let data = try await item.loadTransferable(type: Data.self) else { throw ImportFailure.emptyImage }
+                return .image(data, mimeType: type?.preferredMIMEType ?? "image/jpeg", sourceType: .photos)
             }
-            message = "Imported \(items.count) photo(s)."
-        } catch {
-            message = PrivacyRedactor.safeErrorDetail(error)
-        }
-    }
-
-    private func importFiles(_ result: Result<[URL], Error>) async {
-        isBusy = true
-        defer { isBusy = false }
-        do {
-            let urls = try result.get()
-            for url in urls {
-                guard url.startAccessingSecurityScopedResource() else { continue }
-                defer { url.stopAccessingSecurityScopedResource() }
-                let data = try Data(contentsOf: url)
-                _ = try await service().importImage(
-                    data: data,
-                    fileName: url.lastPathComponent,
-                    mimeType: "image/jpeg",
-                    sourceType: .files
-                )
-            }
-            message = "Imported \(urls.count) file(s)."
-        } catch {
-            message = PrivacyRedactor.safeErrorDetail(error)
-        }
-    }
-
-    private func importJSON() async {
-        isBusy = true
-        defer { isBusy = false }
-        do {
-            _ = try await service().importAIJSON(text: aiJSON)
-            message = "AI JSON imported."
-            aiJSON = ""
-        } catch {
-            message = PrivacyRedactor.safeErrorDetail(error)
-        }
-    }
-
-    private func loadSampleJSON() -> String? {
-        Bundle.main.url(forResource: "sample-extraction", withExtension: "json")
-            .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+        })
+        pickerItems = []
     }
 }

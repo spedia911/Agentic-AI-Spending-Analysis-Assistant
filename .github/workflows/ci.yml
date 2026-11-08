@@ -26,3 +26,24 @@ jobs:
 
       - name: Run CI-safe verification
         run: npm run verify:ci
+
+  ios:
+    name: iOS verification
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Domain tests
+        run: swift test --package-path ios/Packages/SpendingDomain
+      - name: Generate project and verify plists
+        run: |
+          ios/scripts/generate-xcodeproj.sh
+          ios/scripts/verify-plists.sh
+          git diff --exit-code -- ios/SpendingAssistant/Resources/Info.plist ios/ShareExtension/Info.plist
+      - name: Build simulator app and extension
+        run: xcodebuild -project ios/SpendingAssistant.xcodeproj -scheme SpendingAssistant -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/SpendingAssistantBuild CODE_SIGNING_ALLOWED=NO build
+      - name: Verify built extension settings
+        run: ios/scripts/verify-plists.sh /tmp/SpendingAssistantBuild/Build/Products/Debug-iphonesimulator
+      - name: Integration and UI smoke tests
+        run: ios/scripts/test-simulator.sh

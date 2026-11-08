@@ -7,159 +7,112 @@ public struct ValidationContext: Sendable {
 
     public init(now: Date = Date(), today: String? = nil, duplicateLookbackDays: Int = 3) {
         self.now = now
-        if let today {
-            self.today = today
-        } else {
-            let formatter = DateFormatter()
-            formatter.calendar = Calendar(identifier: .gregorian)
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            formatter.dateFormat = "yyyy-MM-dd"
-            self.today = formatter.string(from: now)
-        }
+        self.today = today ?? Self.formatter().string(from: now)
         self.duplicateLookbackDays = duplicateLookbackDays
+    }
+
+    static func formatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.isLenient = false
+        return formatter
     }
 }
 
 public struct ValidationResult: Sendable {
     public var transactions: [TransactionRecord]
     public var reviewItems: [ReviewItemRecord]
-
-    public init(transactions: [TransactionRecord], reviewItems: [ReviewItemRecord]) {
-        self.transactions = transactions
-        self.reviewItems = reviewItems
-    }
 }
 
 public enum Validator {
-    public static func validate(_ transactions: [TransactionRecord], context: ValidationContext = ValidationContext()) -> ValidationResult {
-        var reviewItems: [ReviewItemRecord] = []
+    public static func validate(
+        _ transactions: [TransactionRecord],
+        context: ValidationContext = ValidationContext(),
+        existingTransactions: [TransactionRecord] = []
+    ) -> ValidationResult {
+        var reviews: [ReviewItemRecord] = []
         var updated: [TransactionRecord] = []
-
+        var preceding = existingTransactions.filter { $0.validationStatus != .rejected }
         for transaction in transactions {
-            let issues = transactionIssues(transaction, today: context.today)
+            var issues = transactionIssues(transaction, today: context.today)
+            if let match = preceding.sorted(by: { $0.transactionId < $1.transactionId }).first(where: {
+                $0.transactionId != transaction.transactionId && isPossibleDuplicate($0, transaction, days: context.duplicateLookbackDays)
+            }) {
+                issues.append(Issue(type: .duplicateRisk, field: "duplicate:\(match.transactionId)", severity: .high,
+                    question: "This resembles another charge from \(match.merchantNormalized) on \(match.transactionDate). Are both real?",
+                    options: ["valid", "rejected", "needs_review"]))
+            }
             var copy = transaction
-            if !issues.isEmpty {
-                copy.validationStatus = .needsReview
-                copy.reviewStatus = .pending
-                copy.updatedAt = context.now
-                for issue in issues {
-                    reviewItems.append(makeReviewItem(transaction: copy, issue: issue, now: context.now))
-                }
+            if copy.validationStatus != .rejected {
+                copy.validationStatus = issues.isEmpty ? .valid : .needsReview
+                copy.reviewStatus = issues.isEmpty ? .none : .pending
+            }
+            copy.updatedAt = context.now
+            reviews += issues.map { issue in
+                ReviewItemRecord(
+                    reviewItemId: "review_" + StableHash.make([copy.transactionId, issue.type.rawValue, issue.field]),
+                    targetType: .transaction, targetId: copy.transactionId, issueType: issue.type,
+                    severity: issue.severity, question: issue.question, fieldName: issue.field,
+                    suggestedOptions: issue.options, createdAt: context.now
+                )
             }
             updated.append(copy)
+            if copy.validationStatus != .rejected { preceding.append(copy) }
         }
-
-        let duplicates = duplicateIssues(updated, lookbackDays: context.duplicateLookbackDays)
-        for (index, transaction) in updated.enumerated() {
-            if let issues = duplicates[transaction.transactionId], !issues.isEmpty {
-                updated[index].validationStatus = .needsReview
-                updated[index].reviewStatus = .pending
-                updated[index].updatedAt = context.now
-                for issue in issues {
-                    reviewItems.append(makeReviewItem(transaction: updated[index], issue: issue, now: context.now))
-                }
-            }
-        }
-
-        return ValidationResult(transactions: updated, reviewItems: reviewItems)
+        return ValidationResult(transactions: updated, reviewItems: reviews)
     }
+
+    public static func isValidDate(_ value: String) -> Bool { parseDate(value) != nil }
 
     private struct Issue {
-        var issueType: ReviewIssueType
+        var type: ReviewIssueType
+        var field: String
         var severity: Severity
         var question: String
-        var suggestedOptions: [String]
+        var options: [String] = []
     }
 
-    private static func makeReviewItem(transaction: TransactionRecord, issue: Issue, now: Date) -> ReviewItemRecord {
-        ReviewItemRecord(
-            reviewItemId: "review_" + StableHash.make([transaction.transactionId, issue.issueType.rawValue, issue.question]),
-            targetType: .transaction,
-            targetId: transaction.transactionId,
-            issueType: issue.issueType,
-            severity: issue.severity,
-            question: issue.question,
-            suggestedOptions: issue.suggestedOptions,
-            createdAt: now
-        )
-    }
-
-    private static func transactionIssues(_ transaction: TransactionRecord, today: String) -> [Issue] {
+    private static func transactionIssues(_ tx: TransactionRecord, today: String) -> [Issue] {
         var issues: [Issue] = []
-        let parsedDate = parseIsoDate(transaction.transactionDate)
-
-        if transaction.transactionDate.isEmpty || parsedDate == nil {
-            issues.append(Issue(issueType: .missingField, severity: .high, question: "Please add or correct the transaction date for \"\(transaction.merchantNormalized)\".", suggestedOptions: []))
-        } else if let parsedDate, parsedDate > (parseIsoDate(today) ?? Date.distantPast) {
-            issues.append(Issue(issueType: .anomaly, severity: .medium, question: "This transaction date is in the future. Should it be corrected?", suggestedOptions: []))
+        if let date = parseDate(tx.transactionDate) {
+            if date > (parseDate(today) ?? .distantPast) {
+                issues.append(Issue(type: .anomaly, field: "transaction_date", severity: .medium, question: "This date is in the future. Correct it or confirm it."))
+            }
+        } else {
+            issues.append(Issue(type: .missingField, field: "transaction_date", severity: .high, question: "Add a valid transaction date for \(tx.merchantNormalized)."))
         }
-
-        if transaction.merchantNormalized.isEmpty || transaction.merchantNormalized == "Unknown merchant" {
-            issues.append(Issue(issueType: .missingField, severity: .high, question: "Please identify the merchant for this transaction.", suggestedOptions: []))
+        if tx.merchantNormalized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || tx.merchantNormalized == "Unknown merchant" {
+            issues.append(Issue(type: .missingField, field: "merchant", severity: .high, question: "Identify the merchant."))
         }
-
-        if !transaction.amount.isFinite || transaction.amount == 0 {
-            issues.append(Issue(issueType: .missingField, severity: .high, question: "Please confirm the amount for \"\(transaction.merchantNormalized)\".", suggestedOptions: []))
-        } else if abs(transaction.amount) > 10000 && transaction.transactionType == .expense {
-            issues.append(Issue(issueType: .anomaly, severity: .medium, question: "This expense is unusually large. Please confirm the amount and merchant.", suggestedOptions: []))
+        if !tx.amount.isFinite || tx.amount == 0 {
+            issues.append(Issue(type: .missingField, field: "amount", severity: .high, question: "Enter a nonzero amount."))
+        } else if abs(tx.amount) > 10000 && tx.transactionType == .expense {
+            issues.append(Issue(type: .anomaly, field: "amount", severity: .medium, question: "This expense is unusually large. Correct it or confirm it."))
         }
-
-        if transaction.extractionConfidence < 0.75 {
-            issues.append(Issue(issueType: .lowConfidence, severity: .medium, question: "The extraction confidence is low for \"\(transaction.merchantNormalized)\". Please review it.", suggestedOptions: []))
+        if tx.extractionConfidence < 0.75 {
+            issues.append(Issue(type: .lowConfidence, field: "extraction", severity: .medium, question: "Check the extracted fields against the source before confirming."))
         }
         return issues
     }
 
-    private static func duplicateIssues(_ transactions: [TransactionRecord], lookbackDays: Int) -> [String: [Issue]] {
-        var issuesById: [String: [Issue]] = [:]
-        for i in 0..<transactions.count {
-            for j in (i + 1)..<transactions.count {
-                let left = transactions[i]
-                let right = transactions[j]
-                let sameMerchant = normalizeMerchantKey(left.merchantNormalized) == normalizeMerchantKey(right.merchantNormalized)
-                let sameAmount = abs(left.amount - right.amount) < 0.01
-                let dayDelta = daysBetween(left.transactionDate, right.transactionDate)
-                let closeDate = dayDelta.map { $0 <= Double(lookbackDays) } ?? false
-                guard sameMerchant && sameAmount && closeDate else { continue }
-                if dayDelta == 0 {
-                    let issue = Issue(
-                        issueType: .duplicateRisk,
-                        severity: .high,
-                        question: "This matches another row for \(right.merchantNormalized) on \(right.transactionDate) with the same amount. Mark this row as a duplicate unless it is truly separate spending.",
-                        suggestedOptions: ["rejected", "valid", "needs_review"]
-                    )
-                    issuesById[right.transactionId, default: []].append(issue)
-                } else {
-                    let issue = Issue(
-                        issueType: .duplicateRisk,
-                        severity: .medium,
-                        question: "This looks like a possible duplicate charge for \(left.merchantNormalized) around \(left.transactionDate). Please confirm whether both rows are real.",
-                        suggestedOptions: ["valid", "rejected", "needs_review"]
-                    )
-                    issuesById[right.transactionId, default: []].append(issue)
-                }
-            }
+    private static func isPossibleDuplicate(_ left: TransactionRecord, _ right: TransactionRecord, days: Int) -> Bool {
+        func key(_ value: String) -> String {
+            String(value.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
         }
-        return issuesById
+        guard !key(left.merchantNormalized).isEmpty,
+              key(left.merchantNormalized) == key(right.merchantNormalized),
+              abs(left.amount - right.amount) < 0.01,
+              let a = parseDate(left.transactionDate), let b = parseDate(right.transactionDate) else { return false }
+        return abs(a.timeIntervalSince(b)) <= Double(days) * 86_400
     }
 
-    private static func normalizeMerchantKey(_ value: String) -> String {
-        value.lowercased().replacingOccurrences(of: #"[^a-z0-9]"#, with: "", options: .regularExpression)
-    }
-
-    private static func parseIsoDate(_ value: String) -> Date? {
+    private static func parseDate(_ value: String) -> Date? {
         guard value.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil else { return nil }
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.date(from: value)
-    }
-
-    private static func daysBetween(_ a: String, _ b: String) -> Double? {
-        guard let dateA = parseIsoDate(a), let dateB = parseIsoDate(b) else { return nil }
-        return abs(dateA.timeIntervalSince(dateB)) / 86_400
+        let formatter = ValidationContext.formatter()
+        guard let date = formatter.date(from: value), formatter.string(from: date) == value else { return nil }
+        return date
     }
 }

@@ -15,6 +15,8 @@ final class SDSourceDocument {
     var statusRaw: String
     var errorSummary: String?
     var rawText: String?
+    var contentFingerprint: String?
+    var importedJSON: String?
 
     init(from record: SourceDocumentRecord) {
         self.sourceDocumentId = record.sourceDocumentId
@@ -28,6 +30,8 @@ final class SDSourceDocument {
         self.statusRaw = record.status.rawValue
         self.errorSummary = record.errorSummary
         self.rawText = record.rawText
+        self.contentFingerprint = record.contentFingerprint
+        self.importedJSON = record.importedJSON
     }
 
     func apply(_ record: SourceDocumentRecord) {
@@ -41,6 +45,8 @@ final class SDSourceDocument {
         statusRaw = record.status.rawValue
         errorSummary = record.errorSummary
         rawText = record.rawText
+        contentFingerprint = record.contentFingerprint
+        importedJSON = record.importedJSON
     }
 
     func toRecord() -> SourceDocumentRecord {
@@ -55,7 +61,9 @@ final class SDSourceDocument {
             processedAt: processedAt,
             status: ProcessingStatus(rawValue: statusRaw) ?? .pending,
             errorSummary: errorSummary,
-            rawText: rawText
+            rawText: rawText,
+            contentFingerprint: contentFingerprint,
+            importedJSON: importedJSON
         )
     }
 }
@@ -210,6 +218,7 @@ final class SDReviewItem {
     var targetTypeRaw: String
     var targetId: String
     var issueTypeRaw: String
+    var fieldName: String?
     var severityRaw: String
     var question: String
     var suggestedOptionsJSON: String
@@ -223,6 +232,7 @@ final class SDReviewItem {
         self.targetTypeRaw = record.targetType.rawValue
         self.targetId = record.targetId
         self.issueTypeRaw = record.issueType.rawValue
+        self.fieldName = record.fieldName
         self.severityRaw = record.severity.rawValue
         self.question = record.question
         self.suggestedOptionsJSON = (try? String(data: JSONEncoder().encode(record.suggestedOptions), encoding: .utf8)) ?? "[]"
@@ -236,6 +246,7 @@ final class SDReviewItem {
         targetTypeRaw = record.targetType.rawValue
         targetId = record.targetId
         issueTypeRaw = record.issueType.rawValue
+        fieldName = record.fieldName
         severityRaw = record.severity.rawValue
         question = record.question
         suggestedOptionsJSON = (try? String(data: JSONEncoder().encode(record.suggestedOptions), encoding: .utf8)) ?? "[]"
@@ -254,6 +265,7 @@ final class SDReviewItem {
             issueType: ReviewIssueType(rawValue: issueTypeRaw) ?? .lowConfidence,
             severity: Severity(rawValue: severityRaw) ?? .medium,
             question: question,
+            fieldName: fieldName,
             suggestedOptions: options,
             status: ReviewItemStatus(rawValue: statusRaw) ?? .pending,
             userAnswer: userAnswer,

@@ -160,19 +160,8 @@ public enum Normalizer {
             updatedAt: context.now
         )
 
-        let reviewItems = reasons.map { reason -> ReviewItemRecord in
-            let issue: ReviewIssueType = reason == "low_extraction_confidence" ? .lowConfidence : .missingField
-            return ReviewItemRecord(
-                reviewItemId: "review_" + StableHash.make([transactionId, issue.rawValue]),
-                targetType: .transaction,
-                targetId: transactionId,
-                issueType: issue,
-                severity: issue == .missingField ? .high : .medium,
-                question: "Please review transaction \"\(merchant)\" because of \(reason.replacingOccurrences(of: "_", with: " ")).",
-                createdAt: context.now
-            )
-        }
-        return (transaction, reviewItems)
+        // Validator is the sole owner of transaction validation reviews.
+        return (transaction, [])
     }
 
     public static func normalizeAssetSnapshotCandidate(

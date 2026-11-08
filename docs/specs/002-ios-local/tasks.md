@@ -52,19 +52,19 @@
 - [ ] Onboarding: copyable AI prompt + first-import walkthrough
 
 ### Ingestion
-- [ ] Drain Share Extension inbox with user-visible “Imported from Share” toast/history
-- [ ] Files/Photos multi-select progress + per-file error surfacing
+- [x] Drain Share inbox on launch/foreground with user-visible results, retained failures, retry/delete
+- [x] Files/Photos multi-select progress + per-file error surfacing
 - [ ] Optional Shortcuts / App Intent for “Import AI JSON”
 
 ### Data / reliability
-- [ ] Prevent Xcode from stripping Share Extension / app Info.plist keys (or move keys into build settings)
-- [ ] Check in or document regenerating `SpendingAssistant.xcodeproj` so clones don’t depend on ad-hoc local state
-- [ ] Add `ios/**/.build/` to ignore hygiene if not already covered
+- [x] Preserve authoritative app/extension Info.plists through XcodeGen and verify built settings
+- [x] Document regenerating `SpendingAssistant.xcodeproj`; fail clearly when XcodeGen is missing
+- [x] Ignore `ios/**/.build/` (already covered)
 - [ ] CSV export alongside JSON backup
 - [ ] One-time import from v1 Sheets/CSV export (optional migration)
 
 ### Quality
-- [ ] Run XCUITest smoke: seed → review → import sample JSON → export
+- [x] Run XCUITest smoke: seed → review → import sample JSON → repeat import → export
 - [ ] Device TestFlight build with App Group + unique bundle IDs under your team
 - [ ] Real-device OCR accuracy pass on personal (non-committed) screenshots
 
@@ -72,3 +72,19 @@
 - [ ] Decide fate of Next.js Google MVP (`src/`): archive folder vs keep as algorithm reference only
 - [ ] Close or merge GitHub PR #1 after local main is updated
 - [ ] Bump XcodeGen `SWIFT_VERSION` in `ios/project.yml` to match tools 6.0 package
+
+## Reliability increment
+
+- [x] Exact-byte image and canonical JSON fingerprints, independent local IDs, non-destructive legacy backfill
+- [x] Shared import serialization, typed outcomes, batch progress, and per-file continuation
+- [x] Empty/invalid extraction recovery with source evidence and attached JSON repair
+- [x] Explicit atomic commits and rollback for rows, reviews, completion, and summaries
+- [x] Transaction field editor and issue-specific category/confirmation/duplicate actions
+- [x] Stable field-specific validation reviews and deterministic latest merchant memory
+- [x] Duplicate risk against persisted rows; usable pending totals labelled provisional
+- [x] In-memory SwiftData regression suite and synthetic Vision OCR check
+- [x] macOS CI for domain tests, plist verification, unsigned build, and simulator tests
+- [x] Simulator regression: 12 integration tests and 1 UI smoke passed; 19 domain tests passed
+- [x] Live synthetic-image check: Photos Share imported one $12 Safeway row on foreground; Photos picker and Files both reported already imported
+
+Deferred: editable asset reviews, Foundation Models calls, real bank OCR layouts, dashboard expansion, and signed device/TestFlight validation.

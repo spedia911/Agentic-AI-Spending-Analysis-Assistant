@@ -1,40 +1,45 @@
 import Foundation
 import SpendingDomain
 
+struct ShareInboxItem: Identifiable {
+    var id: URL { url }
+    var url: URL
+    var error: String?
+    var failureURL: URL { url.appendingPathExtension("failure") }
+}
+
 enum ShareInboxService {
     static let appGroupId = "group.com.spendingassistant.shared"
-
     static var inboxDirectory: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)?
             .appendingPathComponent("Inbox", isDirectory: true)
     }
 
-    @MainActor
-    static func drain(into service: ImportPipelineService) async -> Int {
-        guard let inbox = inboxDirectory else { return 0 }
-        let files = (try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)) ?? []
-        var count = 0
-        for file in files {
-            defer { try? FileManager.default.removeItem(at: file) }
-            do {
-                if file.pathExtension.lowercased() == "txt" || file.pathExtension.lowercased() == "json" {
-                    let text = try String(contentsOf: file, encoding: .utf8)
-                    _ = try await service.importAIJSON(text: text, fileName: file.lastPathComponent)
-                } else {
-                    let data = try Data(contentsOf: file)
-                    _ = try await service.importImage(
-                        data: data,
-                        fileName: file.lastPathComponent,
-                        mimeType: "image/jpeg",
-                        sourceType: .share
-                    )
-                }
-                count += 1
-            } catch {
-                // Leave a breadcrumb file for debugging without retaining sensitive payload.
-                continue
+    static func items(in inbox: URL) throws -> [ShareInboxItem] {
+        guard FileManager.default.fileExists(atPath: inbox.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])
+            .filter {
+                guard $0.pathExtension != "failure" else { return false }
+                return try $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true
             }
-        }
-        return count
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .map { url in
+                let failure = url.appendingPathExtension("failure")
+                let error: String?
+                if FileManager.default.fileExists(atPath: failure.path) {
+                    // An unreadable failure marker must not cause an automatic retry loop.
+                    error = (try? String(contentsOf: failure, encoding: .utf8)) ?? "Previous import failed. Retry or delete this item."
+                } else { error = nil }
+                return ShareInboxItem(url: url, error: error)
+            }
+    }
+
+    static func markFailed(_ item: ShareInboxItem, message: String) throws {
+        try Data(PrivacyRedactor.maskSensitiveText(message).utf8).write(to: item.failureURL, options: [.atomic, .completeFileProtection])
+    }
+
+    static func delete(_ item: ShareInboxItem) throws {
+        if FileManager.default.fileExists(atPath: item.url.path) { try FileManager.default.removeItem(at: item.url) }
+        if FileManager.default.fileExists(atPath: item.failureURL.path) { try FileManager.default.removeItem(at: item.failureURL) }
     }
 }

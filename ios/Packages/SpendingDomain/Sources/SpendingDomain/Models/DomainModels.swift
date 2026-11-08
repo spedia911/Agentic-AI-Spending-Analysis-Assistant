@@ -107,6 +107,8 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
     public var status: ProcessingStatus
     public var errorSummary: String?
     public var rawText: String?
+    public var contentFingerprint: String?
+    public var importedJSON: String?
 
     public init(
         sourceDocumentId: String,
@@ -119,7 +121,9 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
         processedAt: Date? = nil,
         status: ProcessingStatus = .pending,
         errorSummary: String? = nil,
-        rawText: String? = nil
+        rawText: String? = nil,
+        contentFingerprint: String? = nil,
+        importedJSON: String? = nil
     ) {
         self.sourceDocumentId = sourceDocumentId
         self.sourceType = sourceType
@@ -132,6 +136,8 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
         self.status = status
         self.errorSummary = errorSummary
         self.rawText = rawText
+        self.contentFingerprint = contentFingerprint
+        self.importedJSON = importedJSON
     }
 }
 
@@ -244,6 +250,7 @@ public struct ReviewItemRecord: Codable, Sendable, Equatable, Identifiable {
     public var targetType: ReviewTargetType
     public var targetId: String
     public var issueType: ReviewIssueType
+    public var fieldName: String?
     public var severity: Severity
     public var question: String
     public var suggestedOptions: [String]
@@ -259,6 +266,7 @@ public struct ReviewItemRecord: Codable, Sendable, Equatable, Identifiable {
         issueType: ReviewIssueType,
         severity: Severity,
         question: String,
+        fieldName: String? = nil,
         suggestedOptions: [String] = [],
         status: ReviewItemStatus = .pending,
         userAnswer: String? = nil,
@@ -269,6 +277,7 @@ public struct ReviewItemRecord: Codable, Sendable, Equatable, Identifiable {
         self.targetType = targetType
         self.targetId = targetId
         self.issueType = issueType
+        self.fieldName = fieldName
         self.severity = severity
         self.question = question
         self.suggestedOptions = suggestedOptions

@@ -4,7 +4,7 @@ import Charts
 import SpendingDomain
 
 struct HomeView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(ImportCoordinator.self) private var imports
     @Query private var monthly: [SDMonthlySummary]
     @Query private var cashFlows: [SDCashFlowSummary]
     @Query private var anomalies: [SDAnomaly]
@@ -12,7 +12,6 @@ struct HomeView: View {
     @Query private var sources: [SDSourceDocument]
     @Query private var transactions: [SDTransaction]
 
-    @AppStorage("enableFoundationModels") private var enableFoundationModels = true
     @State private var statusMessage: String?
 
     var body: some View {
@@ -25,6 +24,14 @@ struct HomeView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    if let message = imports.shareMessage {
+                        Text(message).font(.footnote).accessibilityIdentifier("shareImportStatus")
+                    }
+                    if transactions.contains(where: { $0.validationStatusRaw == ValidationStatus.needsReview.rawValue || $0.reviewStatusRaw == ReviewStatus.pending.rawValue }) {
+                        Text("Provisional totals include usable transactions awaiting review. Rejected rows are excluded.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("provisionalTotals")
+                    }
                     insightsSection
                     cashFlowSection
                     categoryChartSection
@@ -34,6 +41,7 @@ struct HomeView: View {
                         seedDemo()
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(imports.isBusy)
                 }
                 .padding()
             }
@@ -141,9 +149,7 @@ struct HomeView: View {
 
     private func seedDemo() {
         do {
-            let store = LocalStore(modelContext: modelContext)
-            let service = ImportPipelineService(store: store, enableFoundationModels: enableFoundationModels)
-            try service.seedDemo()
+            try imports.service.seedDemo()
             statusMessage = "Demo data loaded."
         } catch {
             statusMessage = PrivacyRedactor.safeErrorDetail(error)

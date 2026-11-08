@@ -9,9 +9,5 @@ if command -v xcodegen >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "XcodeGen is not installed."
-echo "Install with: brew install xcodegen"
-echo "Then re-run: ios/scripts/generate-xcodeproj.sh"
-echo
-echo "You can also open Packages/SpendingDomain in Xcode and create an iOS app target that depends on it."
-exit 0
+echo "XcodeGen is required. Install it with: brew install xcodegen" >&2
+exit 1

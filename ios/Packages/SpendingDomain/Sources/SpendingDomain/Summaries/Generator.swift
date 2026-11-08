@@ -187,7 +187,9 @@ public enum SummaryGenerator {
     }
 
     private static func isUsable(_ transaction: TransactionRecord) -> Bool {
-        transaction.validationStatus != .rejected && !transaction.observedMonth.isEmpty && transaction.observedMonth != "unknown"
+        transaction.validationStatus != .rejected && Validator.isValidDate(transaction.transactionDate)
+            && transaction.amount.isFinite && transaction.amount != 0
+            && transaction.observedMonth == String(transaction.transactionDate.prefix(7))
     }
 
     private static func summaryAmount(_ transaction: TransactionRecord) -> Double {

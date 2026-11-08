@@ -6,6 +6,7 @@ public struct PipelineInput: Sendable {
     public var extraction: ScreenshotExtractionResult
     public var existingTransactions: [TransactionRecord]
     public var corrections: [CorrectionRecord]
+    public var existingAssets: [AssetSnapshotRecord]
     public var observedMonthHint: String?
     public var now: Date
 
@@ -15,6 +16,7 @@ public struct PipelineInput: Sendable {
         extraction: ScreenshotExtractionResult,
         existingTransactions: [TransactionRecord] = [],
         corrections: [CorrectionRecord] = [],
+        existingAssets: [AssetSnapshotRecord] = [],
         observedMonthHint: String? = nil,
         now: Date = Date()
     ) {
@@ -22,6 +24,7 @@ public struct PipelineInput: Sendable {
         self.fileName = fileName
         self.extraction = extraction
         self.existingTransactions = existingTransactions
+        self.existingAssets = existingAssets
         self.corrections = corrections
         self.observedMonthHint = observedMonthHint
         self.now = now
@@ -46,9 +49,7 @@ public enum ProcessingPipeline {
     /// Normalize → validate → categorize for one extraction result.
     public static func process(_ input: PipelineInput, classifier: (any CategoryClassifier)? = nil) async -> PipelineOutput {
         var extraction = input.extraction
-        if extraction.sourceDocumentId.isEmpty {
-            extraction.sourceDocumentId = input.sourceDocumentId
-        }
+        extraction.sourceDocumentId = input.sourceDocumentId
 
         let normalized = Normalizer.normalize(
             extraction: extraction,
@@ -59,9 +60,12 @@ public enum ProcessingPipeline {
             )
         )
 
+        let existingIds = Set(input.existingTransactions.map(\.transactionId))
+        let existingAssetIds = Set(input.existingAssets.map(\.assetSnapshotId))
         let validated = Validator.validate(
-            normalized.transactions,
-            context: ValidationContext(now: input.now)
+            normalized.transactions.filter { !existingIds.contains($0.transactionId) },
+            context: ValidationContext(now: input.now),
+            existingTransactions: input.existingTransactions
         )
 
         let categorized = await Categorizer.categorizeWithFallback(
@@ -72,14 +76,15 @@ public enum ProcessingPipeline {
         )
 
         // Idempotent: drop incoming rows that already exist with same transactionId
-        let existingIds = Set(input.existingTransactions.map(\.transactionId))
         let newTransactions = categorized.transactions.filter { !existingIds.contains($0.transactionId) }
 
-        let reviews = dedupeReviews(normalized.reviewItems + validated.reviewItems + categorized.reviewItems)
+        let newAssets = normalized.assetSnapshots.filter { !existingAssetIds.contains($0.assetSnapshotId) }
+        let assetIds = Set(newAssets.map(\.assetSnapshotId))
+        let reviews = dedupeReviews(normalized.reviewItems.filter { assetIds.contains($0.targetId) } + validated.reviewItems + categorized.reviewItems)
 
         return PipelineOutput(
             transactions: newTransactions,
-            assetSnapshots: normalized.assetSnapshots,
+            assetSnapshots: newAssets,
             reviewItems: reviews,
             warnings: extraction.warnings
         )

@@ -166,7 +166,7 @@ public enum Categorizer {
 
     private static func merchantCorrectionMap(_ corrections: [CorrectionRecord]) -> [String: SpendingCategory] {
         var map: [String: SpendingCategory] = [:]
-        for correction in corrections {
+        for correction in corrections.sorted(by: { ($0.createdAt, $0.correctionId) < ($1.createdAt, $1.correctionId) }) {
             if correction.applyFuture,
                correction.targetType == .merchantRule,
                correction.fieldName == "category",
@@ -179,7 +179,7 @@ public enum Categorizer {
     }
 
     private static func normalizeKey(_ value: String) -> String {
-        value.lowercased().replacingOccurrences(of: #"[^a-z0-9]"#, with: "", options: .regularExpression)
+        String(value.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 
     private static func matches(_ pattern: String, in text: String) -> Bool {

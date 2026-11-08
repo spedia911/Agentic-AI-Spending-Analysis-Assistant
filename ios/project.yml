@@ -26,8 +26,6 @@ targets:
     dependencies:
       - package: SpendingDomain
       - target: ShareExtension
-    info:
-      path: SpendingAssistant/Resources/Info.plist
   ShareExtension:
     type: app-extension
     platform: iOS
@@ -37,8 +35,25 @@ targets:
       PRODUCT_BUNDLE_IDENTIFIER: com.spendingassistant.app.share
       INFOPLIST_FILE: ShareExtension/Info.plist
       CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
-    info:
-      path: ShareExtension/Info.plist
+  SpendingAssistantTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SpendingAssistantTests
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: SpendingAssistant
+      - package: SpendingDomain
+  SpendingAssistantUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SpendingAssistantUITests
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: SpendingAssistant
 schemes:
   SpendingAssistant:
     build:
@@ -47,3 +62,8 @@ schemes:
         ShareExtension: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - SpendingAssistantTests
+        - SpendingAssistantUITests

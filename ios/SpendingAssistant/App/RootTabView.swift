@@ -1,13 +1,14 @@
 import SwiftUI
 import SwiftData
+import SpendingDomain
 
 enum AppRoute: Hashable {
     case home, importTab, review, sources, settings
 }
 
 struct RootTabView: View {
-    @Environment(\.modelContext) private var modelContext
-    @AppStorage("enableFoundationModels") private var enableFoundationModels = true
+    @Environment(ImportCoordinator.self) private var imports
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("sourceImageRetentionDays") private var retentionDays = 30
     @State private var route: AppRoute = .home
 
@@ -29,13 +30,22 @@ struct RootTabView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(AppRoute.settings)
         }
-        .task {
-            let store = LocalStore(modelContext: modelContext)
-            let service = ImportPipelineService(store: store, enableFoundationModels: enableFoundationModels)
-            _ = await ShareInboxService.drain(into: service)
-            if let sources = try? store.allSources() {
-                SourceFileStore.cleanup(retentionDays: retentionDays, sources: sources)
-            }
+        .task { await activate() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await activate() } }
         }
+        .onChange(of: retentionDays) { _, _ in cleanup() }
+    }
+
+    private func activate() async {
+        await imports.drainShareInbox()
+        do { try imports.service.backfillFingerprints() }
+        catch { imports.shareMessage = "Source recovery: " + PrivacyRedactor.safeErrorDetail(error) }
+        cleanup()
+    }
+
+    private func cleanup() {
+        do { SourceFileStore.cleanup(retentionDays: retentionDays, sources: try imports.service.store.allSources()) }
+        catch { imports.shareMessage = PrivacyRedactor.safeErrorDetail(error) }
     }
 }
