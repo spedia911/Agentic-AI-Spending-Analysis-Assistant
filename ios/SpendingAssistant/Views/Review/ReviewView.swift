@@ -187,6 +187,7 @@ private struct TransactionEditor: View {
     @State private var date: String
     @State private var merchant: String
     @State private var amount: String
+    @FocusState private var amountFocused: Bool
     @State private var type: TransactionType
     @State private var account: String
     @State private var selectedCategory: SpendingCategory
@@ -216,7 +217,20 @@ private struct TransactionEditor: View {
             Section("Transaction summary") {
                 LabeledContent("Date") { TextField("YYYY-MM-DD", text: $date).multilineTextAlignment(.trailing).accessibilityIdentifier("transactionDate") }
                 LabeledContent("Merchant") { TextField("Merchant", text: $merchant).multilineTextAlignment(.trailing).accessibilityIdentifier("transactionMerchant") }
-                LabeledContent("Amount") { TextField("Signed amount", text: $amount).multilineTextAlignment(.trailing).keyboardType(.numbersAndPunctuation).accessibilityIdentifier("transactionAmount") }
+                HStack {
+                    Text("Amount")
+                    TextField("Signed amount", text: $amount)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numbersAndPunctuation)
+                        .focused($amountFocused)
+                        .accessibilityIdentifier("transactionAmount")
+                    if amountFocused && !amount.isEmpty {
+                        Button("Clear amount", systemImage: "xmark.circle.fill") { amount = "" }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("clearTransactionAmount")
+                    }
+                }
                 LabeledContent("Currency", value: "USD")
                 Picker("Type", selection: Binding(
                     get: { type },

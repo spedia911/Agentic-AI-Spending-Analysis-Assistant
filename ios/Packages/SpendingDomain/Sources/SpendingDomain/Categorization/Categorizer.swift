@@ -54,6 +54,7 @@ public enum Categorizer {
         var reason: String
         var alternatives: [SpendingCategory]
         var needsReview: Bool
+        var classificationPreference: TransactionClassification.Prefer = .type
     }
 
     private static let ambiguousMerchants = [#"amazon"#, #"costco"#, #"walmart"#, #"target"#, #"paypal"#, #"venmo"#, #"apple"#]
@@ -210,7 +211,8 @@ public enum Categorizer {
     ) -> Decision {
         let merchant = transaction.merchantNormalized.isEmpty ? transaction.merchantRaw : transaction.merchantNormalized
         if let correction = corrections[scopedMerchantKey(merchant, origin: transaction.origin)] {
-            return Decision(category: correction, confidence: 0.99, reason: "Matched user correction memory.", alternatives: [], needsReview: false)
+            return Decision(category: correction, confidence: 0.99, reason: "Matched user correction memory.",
+                alternatives: [], needsReview: false, classificationPreference: .category)
         }
 
         if let typed = categoryForTransactionType(transaction) { return typed }
@@ -273,8 +275,9 @@ public enum Categorizer {
         updated.category = decision.category
         updated.categoryConfidence = decision.confidence
         updated.updatedAt = now
-        // Type wins for income/transfer/fee; spending categories never stick on those rows.
-        _ = TransactionClassification.normalize(&updated, prefer: .type)
+        // Explicit merchant rules use the same preference as an in-app category correction.
+        // Inferred categories defer to the transaction's type.
+        _ = TransactionClassification.normalize(&updated, prefer: decision.classificationPreference)
         if decision.needsReview {
             updated.validationStatus = .needsReview
             updated.reviewStatus = .pending

@@ -70,9 +70,12 @@ final class SmokeTests: XCTestCase {
         let edited = app.textFields["transactionAmount"]
         XCTAssertTrue(edited.waitForExistence(timeout: 5))
         reveal(edited, in: app)
-        edited.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
-        let old = edited.value as? String ?? ""
-        edited.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + "-20.00")
+        edited.tap()
+        let clearAmount = app.buttons["clearTransactionAmount"]
+        XCTAssertTrue(clearAmount.waitForExistence(timeout: 5))
+        clearAmount.tap()
+        edited.tap()
+        edited.typeText("-20.00")
         reveal(app.buttons["Confirm"], in: app)
         app.buttons["Confirm"].tap()
         let confirmCategory = app.buttons["Confirm this transaction only"]

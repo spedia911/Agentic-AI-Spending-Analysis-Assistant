@@ -298,6 +298,10 @@ final class ImportIntegrationTests: XCTestCase {
         let rows = try store.allTransactions()
         XCTAssertEqual(rows.filter { $0.origin == .bank }.map(\.category), [.transfer, .transfer])
         XCTAssertEqual(rows.filter { $0.origin == .card }.map(\.category), [.fees, .fees])
+        XCTAssertEqual(rows.filter { $0.origin == .bank }.map(\.transactionType), [.transfer, .transfer])
+        XCTAssertTrue(rows.filter { $0.origin == .card }.allSatisfy {
+            TransactionClassification.isConsistent(type: $0.transactionType, category: $0.category)
+        })
         XCTAssertEqual(Set(try store.allCorrections().filter { $0.targetType == .merchantRule }.map(\.targetId)),
             ["bank|EXAMPLE-CARD", "card|Example Card"])
     }
