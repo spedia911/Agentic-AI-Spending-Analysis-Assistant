@@ -366,7 +366,9 @@ private struct TransactionEditor: View {
                 }
             }
             Section("Evidence") {
-                Text(transaction.evidenceText.isEmpty ? "No extraction evidence." : transaction.evidenceText).font(.footnote.monospaced())
+                Text(transaction.evidenceText.isEmpty ? "No extraction evidence." : transaction.evidenceText)
+                    .font(.footnote.monospaced())
+                    .accessibilityIdentifier("transactionEvidenceText")
                 if let source { NavigationLink("Open source") { SourceDetailView(source: source) } }
             }
         }.navigationTitle("Confidence and evidence")

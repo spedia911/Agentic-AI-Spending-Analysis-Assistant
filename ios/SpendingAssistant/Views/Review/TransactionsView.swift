@@ -18,12 +18,15 @@ struct TransactionsView: View {
     @State private var selected: Set<String> = []
     @State private var deleting: Set<String> = []
     @State private var confirmDelete = false
+    @State private var removed: Set<String> = []
+    @State private var deletionStatus: String?
     @State private var error: String?
     @State private var query = ""
     @State private var adding = false
     @State private var editing: String?
     var body: some View {
         let visible = transactions.filter { tx in
+            guard !removed.contains(tx.transactionId) else { return false }
             let row = tx.toRecord()
             return filters.includes(row)
                 && (query.isEmpty || (row.merchantNormalized + " " + row.accountLabel).localizedCaseInsensitiveContains(query))
@@ -33,6 +36,10 @@ struct TransactionsView: View {
         }
         let visibleSelection = selected.intersection(visible.map(\.transactionId))
         List {
+            if let deletionStatus {
+                Text(deletionStatus).font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("transactionDeletionStatus")
+            }
             if spendingOnly { Text("Spending transactions").font(.caption).foregroundStyle(.secondary) }
             if visible.isEmpty {
                 Text(transactions.isEmpty ? "Import a screenshot or add your first transaction." : "No transactions match these filters.")
@@ -54,7 +61,7 @@ struct TransactionsView: View {
                     .swipeActions(allowsFullSwipe: false) {
                         Button("Delete", systemImage: "trash") {
                             deleting = [tx.transactionId]
-                            if confirmedSwipe { performDelete() } else { confirmDelete = true }
+                            if confirmedSwipe { performDelete(ids: deleting) } else { confirmDelete = true }
                         }.tint(.red)
                         Button("Edit", systemImage: "pencil") { editing = tx.transactionId }.tint(.blue)
                     }
@@ -62,10 +69,10 @@ struct TransactionsView: View {
             }
         }
         .disabled(imports.isBusy)
-        .alert("Delete transactions?", isPresented: $confirmDelete) {
-            Button("Delete", role: .destructive) { performDelete() }
+        .alert("Delete transactions?", isPresented: $confirmDelete, presenting: deleting) { ids in
+            Button("Delete", role: .destructive) { performDelete(ids: ids) }
             Button("Cancel", role: .cancel) { }
-        } message: { Text("Permanently delete \(deleting.count) transaction(s) and their reviews. Totals will update. Sources and correction history remain. \(selecting ? "Bulk deletion always asks for confirmation." : "After this, tapping Delete on a swiped row will delete it immediately.")") }
+        } message: { ids in Text("Permanently delete \(ids.count) transaction(s) and their reviews. Totals will update. Sources and correction history remain. \(selecting ? "Bulk deletion always asks for confirmation." : "After this, tapping Delete on a swiped row will delete it immediately.")") }
         .alert("Deletion failed", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("OK") { error = nil } } message: { Text(error ?? "") }
         .navigationTitle("Transactions")
         .navigationDestination(item: $editing) { TransactionDetailView(transactionId: $0) }
@@ -105,11 +112,15 @@ struct TransactionsView: View {
         }
     }
 
-    private func performDelete() {
+    private func performDelete(ids: Set<String>) {
+        guard !ids.isEmpty else { return }
         do {
-            try imports.service.store.deleteTransactions(ids: deleting)
+            try imports.service.store.deleteTransactions(ids: ids)
             if !selecting { confirmedSwipe = true }
-            selected.subtract(deleting)
+            // SwiftData may deliver its query refresh after the alert closes.
+            removed.formUnion(ids)
+            selected.subtract(ids)
+            deletionStatus = ids.count == 1 ? "Deleted 1 transaction." : "Deleted \(ids.count) transactions."
         } catch { self.error = PrivacyRedactor.safeErrorDetail(error) }
     }
 }

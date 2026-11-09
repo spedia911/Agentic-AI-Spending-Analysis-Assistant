@@ -88,7 +88,10 @@ final class SmokeTests: XCTestCase {
         app.buttons["transactionDetails"].tap()
         app.buttons["Confidence and evidence"].tap()
         XCTAssertTrue(app.navigationBars["Confidence and evidence"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Evidence"].exists)
+        let evidence = app.staticTexts["transactionEvidenceText"]
+        reveal(evidence, in: app)
+        XCTAssertTrue(evidence.waitForExistence(timeout: 10))
+        XCTAssertEqual(evidence.label, "Manually entered by the user.")
     }
 
     @MainActor
@@ -107,8 +110,14 @@ final class SmokeTests: XCTestCase {
         app.alerts.buttons["Cancel"].tap()
         XCTAssertTrue(row.exists)
         deleteSelected.tap()
-        app.alerts.buttons["Delete"].tap()
-        XCTAssertFalse(row.exists)
+        let confirmDelete = app.alerts["Delete transactions?"].buttons["Delete"]
+        XCTAssertTrue(confirmDelete.waitForExistence(timeout: 10))
+        confirmDelete.tap()
+        let status = app.staticTexts["transactionDeletionStatus"]
+        XCTAssertTrue(status.waitForExistence(timeout: 15), "Deletion did not report success.")
+        XCTAssertEqual(status.label, "Deleted 1 transaction.")
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: row)
+        waitForExpectations(timeout: 15)
     }
 
     @MainActor
