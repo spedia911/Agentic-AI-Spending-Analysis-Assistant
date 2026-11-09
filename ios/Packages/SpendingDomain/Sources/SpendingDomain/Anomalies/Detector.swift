@@ -60,7 +60,7 @@ public enum AnomalyDetector {
         var anomalies: [AnomalyRecord] = []
         for (category, rows) in byCategory {
             let sorted = rows.sorted { $0.month < $1.month }
-            for i in 1..<sorted.count {
+            for i in sorted.indices.dropFirst() {
                 let prior = sorted[i - 1]
                 let current = sorted[i]
                 if prior.totalAmount > 0 && current.totalAmount / prior.totalAmount >= ratio {
@@ -98,7 +98,7 @@ public enum AnomalyDetector {
     public static func detectMissingMonthAnomalies(_ monthlySummaries: [MonthlySummaryRecord], now: Date) -> [AnomalyRecord] {
         let months = Array(Set(monthlySummaries.map(\.month))).sorted()
         var anomalies: [AnomalyRecord] = []
-        for i in 1..<months.count {
+        for i in months.indices.dropFirst() {
             guard let expected = nextMonth(months[i - 1]) else { continue }
             if months[i] != expected {
                 anomalies.append(makeAnomaly(

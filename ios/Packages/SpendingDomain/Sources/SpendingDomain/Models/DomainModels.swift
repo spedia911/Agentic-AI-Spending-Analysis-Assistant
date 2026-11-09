@@ -1,11 +1,12 @@
 import Foundation
 
 public enum SourceType: String, Codable, Sendable, CaseIterable {
-    case photos, files, share, aiImport = "ai_import"
+    case photos, files, share, manual, aiImport = "ai_import"
 }
 
 public enum ProcessingStatus: String, Codable, Sendable, CaseIterable {
     case pending, processed, skipped, error
+    case needsDetails = "needs_details"
 }
 
 public enum TransactionType: String, Codable, Sendable, CaseIterable {
@@ -21,7 +22,71 @@ public enum ReviewStatus: String, Codable, Sendable, CaseIterable {
 }
 
 public enum BalanceType: String, Codable, Sendable, CaseIterable {
-    case checking, savings, creditAvailable = "credit_available", creditBalance = "credit_balance", unknown
+    case checking
+    case savings
+    case creditAvailable = "credit_available"
+    case creditBalance = "credit_balance"
+    case retirement401k = "401k"
+    case rothIra = "roth_ira"
+    case traditionalIra = "traditional_ira"
+    case hsa
+    case brokerage
+    case investment
+    case unknown
+
+    /// Liquid and long-term holdings shown on the asset dashboard (excludes credit lines).
+    public var tracksAsAsset: Bool {
+        switch self {
+        case .checking, .savings, .retirement401k, .rothIra, .traditionalIra, .hsa, .brokerage, .investment:
+            return true
+        case .creditAvailable, .creditBalance, .unknown:
+            return false
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .checking: return "Checking"
+        case .savings: return "Savings"
+        case .creditAvailable: return "Credit available"
+        case .creditBalance: return "Credit balance"
+        case .retirement401k: return "401(k)"
+        case .rothIra: return "Roth IRA"
+        case .traditionalIra: return "Traditional IRA"
+        case .hsa: return "HSA"
+        case .brokerage: return "Brokerage / stocks"
+        case .investment: return "Investment"
+        case .unknown: return "Unknown"
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if let exact = BalanceType(rawValue: raw) {
+            self = exact
+            return
+        }
+        let key = raw.lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "-", with: "_")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+        switch key {
+        case "roth", "rothira": self = .rothIra
+        case "trad_ira", "traditionalira", "ira": self = .traditionalIra
+        case "401k", "retirement_401k", "retirement401k": self = .retirement401k
+        case "stock", "stocks", "stock_account", "equity", "equities": self = .brokerage
+        case "investments": self = .investment
+        case "health_savings", "health_savings_account": self = .hsa
+        default: self = .unknown
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public enum ReviewTargetType: String, Codable, Sendable, CaseIterable {
@@ -109,6 +174,11 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
     public var rawText: String?
     public var contentFingerprint: String?
     public var importedJSON: String?
+    public var cardName: String?
+    public var screenshotLayout: String?
+    public var observedMonthHint: String?
+    public var ocrLinesJSON: String?
+    public var imageDeletedAt: Date?
 
     public init(
         sourceDocumentId: String,
@@ -123,7 +193,12 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
         errorSummary: String? = nil,
         rawText: String? = nil,
         contentFingerprint: String? = nil,
-        importedJSON: String? = nil
+        importedJSON: String? = nil,
+        cardName: String? = nil,
+        screenshotLayout: String? = nil,
+        observedMonthHint: String? = nil,
+        ocrLinesJSON: String? = nil,
+        imageDeletedAt: Date? = nil
     ) {
         self.sourceDocumentId = sourceDocumentId
         self.sourceType = sourceType
@@ -138,7 +213,18 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
         self.rawText = rawText
         self.contentFingerprint = contentFingerprint
         self.importedJSON = importedJSON
+        self.cardName = cardName
+        self.screenshotLayout = screenshotLayout
+        self.observedMonthHint = observedMonthHint
+        self.ocrLinesJSON = ocrLinesJSON
+        self.imageDeletedAt = imageDeletedAt
     }
+}
+
+public enum TransactionOrigin: String, Codable, Sendable, CaseIterable {
+    case bank, card
+
+    public var title: String { self == .bank ? "Bank statement" : "Card statement" }
 }
 
 public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
@@ -152,6 +238,7 @@ public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
     public var amount: Double
     public var transactionType: TransactionType
     public var accountLabel: String
+    public var origin: TransactionOrigin?
     public var category: SpendingCategory
     public var categoryConfidence: Double
     public var extractionConfidence: Double
@@ -172,6 +259,7 @@ public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
         amount: Double,
         transactionType: TransactionType,
         accountLabel: String,
+        origin: TransactionOrigin? = nil,
         category: SpendingCategory = .uncategorized,
         categoryConfidence: Double = 0,
         extractionConfidence: Double,
@@ -191,6 +279,7 @@ public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
         self.amount = amount
         self.transactionType = transactionType
         self.accountLabel = accountLabel
+        self.origin = origin
         self.category = category
         self.categoryConfidence = categoryConfidence
         self.extractionConfidence = extractionConfidence
@@ -245,6 +334,8 @@ public struct AssetSnapshotRecord: Codable, Sendable, Equatable, Identifiable {
 }
 
 public struct ReviewItemRecord: Codable, Sendable, Equatable, Identifiable {
+    public var isAdvisory: Bool { targetType == .transaction && issueType == .lowConfidence }
+
     public var id: String { reviewItemId }
     public var reviewItemId: String
     public var targetType: ReviewTargetType

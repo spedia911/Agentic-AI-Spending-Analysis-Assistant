@@ -32,17 +32,35 @@ public enum CorrectionApplier {
         }
 
         let old = updatedTransactions[index]
-        updatedTransactions[index].category = newCategory
+        let normalized = TransactionClassification.normalize(
+            type: updatedTransactions[index].transactionType,
+            category: newCategory,
+            prefer: .category
+        )
+        updatedTransactions[index].category = normalized.category
         updatedTransactions[index].categoryConfidence = 1
         updatedTransactions[index].updatedAt = now
+        if normalized.type != old.transactionType {
+            updatedTransactions[index].transactionType = normalized.type
+            newCorrections.append(CorrectionRecord(
+                correctionId: "corr_" + StableHash.make([transactionId, "transaction_type", normalized.type.rawValue, now.timeIntervalSince1970]),
+                targetType: .transaction,
+                targetId: transactionId,
+                fieldName: "transaction_type",
+                oldValue: old.transactionType.rawValue,
+                newValue: normalized.type.rawValue,
+                applyFuture: false,
+                createdAt: now
+            ))
+        }
 
         newCorrections.append(CorrectionRecord(
-            correctionId: "corr_" + StableHash.make([transactionId, "category", newCategory.rawValue, now.timeIntervalSince1970]),
+            correctionId: "corr_" + StableHash.make([transactionId, "category", normalized.category.rawValue, now.timeIntervalSince1970]),
             targetType: .transaction,
             targetId: transactionId,
             fieldName: "category",
             oldValue: old.category.rawValue,
-            newValue: newCategory.rawValue,
+            newValue: normalized.category.rawValue,
             applyFuture: remember,
             createdAt: now
         ))
@@ -51,7 +69,7 @@ public enum CorrectionApplier {
             newCorrections.append(CorrectionRecord(
                 correctionId: "corr_" + StableHash.make(["merchant_rule", old.merchantNormalized, newCategory.rawValue, now.timeIntervalSince1970, UUID().uuidString]),
                 targetType: .merchantRule,
-                targetId: old.merchantNormalized,
+                targetId: Categorizer.ruleTarget(old.merchantNormalized, origin: old.origin),
                 fieldName: "category",
                 oldValue: old.category.rawValue,
                 newValue: newCategory.rawValue,
@@ -161,7 +179,7 @@ public enum ReviewError: Error, LocalizedError {
 
 extension CorrectionApplier {
     static func refreshStatus(_ transaction: inout TransactionRecord, reviews: [ReviewItemRecord]) {
-        let pending = reviews.contains { $0.targetType == .transaction && $0.targetId == transaction.transactionId && $0.status == .pending }
+        let pending = reviews.contains { $0.targetType == .transaction && $0.targetId == transaction.transactionId && $0.status == .pending && !$0.isAdvisory }
         if transaction.validationStatus != .rejected { transaction.validationStatus = pending ? .needsReview : .valid }
         transaction.reviewStatus = pending ? .pending : .resolved
     }
@@ -198,6 +216,8 @@ extension CorrectionApplier {
             updated[index].transactionType = edit.type
             updated[index].accountLabel = PrivacyRedactor.maskAccountLabel(edit.account)
             updated[index].updatedAt = now
+            // Type change wins: income/transfer/fee lock their category; spending types drop invalid ones.
+            _ = TransactionClassification.normalize(&updated[index], prefer: .type)
             let result = Validator.validate([updated[index]], context: ValidationContext(now: now), existingTransactions: transactions.filter { $0.transactionId != old.transactionId })
             var reviews = reviewItems
             let generatedIds = Set(result.reviewItems.map(\.reviewItemId))

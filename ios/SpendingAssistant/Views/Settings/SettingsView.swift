@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage("sourceImageRetentionDays") private var retentionDays = 30
     @AppStorage("enableFoundationModels") private var enableFoundationModels = true
-    @AppStorage("lowConfidenceThreshold") private var lowConfidenceThreshold = 0.75
     @State private var exportURL: URL?
     @State private var message: String?
 
@@ -15,7 +14,7 @@ struct SettingsView: View {
             Form {
                 Section("On-device AI") {
                     Toggle("Use Foundation Models when available", isOn: $enableFoundationModels)
-                    Text("This build uses Vision OCR, rules, and manual AI JSON import. Foundation Models adapters are reserved for a future update.")
+                    Text(OnDeviceAIFactory.status)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -33,7 +32,13 @@ struct SettingsView: View {
                     Section { Text(message).font(.footnote) }
                 }
                 Section("About") {
-                    Text("Local-first Spending Assistant v2")
+                    HStack(spacing: 12) {
+                        Image("BrandMark")
+                            .resizable().scaledToFit().frame(width: 52, height: 52)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityHidden(true)
+                        Text("Local-first Spending Assistant v2")
+                    }
                     Text("No Google Drive or Sheets dependency.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

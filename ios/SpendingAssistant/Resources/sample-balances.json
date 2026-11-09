@@ -1,0 +1,40 @@
+{
+  "source_document_id": "sample_balances_001",
+  "screenshot_kind": "bank_activity",
+  "raw_text": "Checking *4321 5,240.12\nRoth IRA 88,100.00\nFidelity 401k 210,450.00\nas of 2026-10-15",
+  "extraction_confidence": 0.9,
+  "transactions": [],
+  "asset_snapshots": [
+    {
+      "row_index": 0,
+      "account_label_text": "Checking *4321",
+      "balance_text": "5240.12",
+      "balance_type_hint": "checking",
+      "observed_date_text": "2026-10-15",
+      "confidence": 0.92,
+      "evidence_text": "Checking *4321 5,240.12",
+      "evidence_region": null
+    },
+    {
+      "row_index": 1,
+      "account_label_text": "Roth IRA",
+      "balance_text": "88100.00",
+      "balance_type_hint": "roth_ira",
+      "observed_date_text": "2026-10-15",
+      "confidence": 0.9,
+      "evidence_text": "Roth IRA 88,100.00",
+      "evidence_region": null
+    },
+    {
+      "row_index": 2,
+      "account_label_text": "Fidelity 401k",
+      "balance_text": "210450.00",
+      "balance_type_hint": "401k",
+      "observed_date_text": "2026-10-15",
+      "confidence": 0.88,
+      "evidence_text": "Fidelity 401k 210,450.00",
+      "evidence_region": null
+    }
+  ],
+  "warnings": []
+}

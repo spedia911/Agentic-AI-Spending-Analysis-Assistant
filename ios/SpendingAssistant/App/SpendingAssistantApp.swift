@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import SpendingDomain
 
 /// Shared by the app and in-memory integration tests.
 enum SpendingPersistence {
@@ -21,7 +22,19 @@ struct SpendingAssistantApp: App {
             let container = try ModelContainer(for: SpendingPersistence.schema,
                 configurations: [ModelConfiguration(isStoredInMemoryOnly: inMemory)])
             self.container = container
-            let service = ImportPipelineService(store: LocalStore(modelContext: container.mainContext))
+            let files = inMemory ? SourceFileStore(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("spending-ui-tests", isDirectory: true)) : SourceFileStore()
+            let service = ImportPipelineService(store: LocalStore(modelContext: container.mainContext), files: files)
+            #if DEBUG
+            if inMemory && ProcessInfo.processInfo.arguments.contains("--ui-testing-fixture") {
+                try service.seedDemo()
+                if ProcessInfo.processInfo.arguments.contains("--ui-testing-unresolved-confirmation") {
+                    let issue = ReviewItemRecord(reviewItemId: "ui-test-duplicate", targetType: .transaction,
+                        targetId: "txn_demo_2", issueType: .duplicateRisk, severity: .medium, question: "Check for a duplicate charge.")
+                    try service.store.commit { try service.store.upsert(review: issue) }
+                }
+            }
+            #endif
             // Hosted unit tests and UI tests must not drain the normal shared inbox.
             _imports = State(initialValue: ImportCoordinator(service: service,
                 inbox: inMemory ? nil : ShareInboxService.inboxDirectory))

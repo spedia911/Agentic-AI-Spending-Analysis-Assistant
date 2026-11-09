@@ -1,18 +1,47 @@
 # Agentic AI Spending Analysis Assistant
 
-## Current direction (v2): Local-First iOS
+## Current product (v2): Local-first iOS
 
-The active product path is a **local-first iOS app** under [`ios/`](ios/). It replaces Google Drive and Google Sheets with on-device import + SwiftData, uses Apple Vision (and optional Foundation Models) for screenshot extraction, and accepts Share/paste JSON from ChatGPT / Claude / Grok as a fallback.
+The active product is a **native iOS app** under [`ios/`](ios/). It ingests financial screenshots and AI JSON on-device, stores everything in SwiftData, and presents a SwiftUI dashboard. Google Drive / Sheets / cloud AI keys are **not** required for the core loop.
+
+| Area | What works |
+| --- | --- |
+| **Import** | Photos, Files (images + supported bank PDFs), Share Extension, paste AI JSON, manual transactions, manual balances |
+| **Extraction** | Apple Vision OCR + layout heuristics (Apple Card, Capital One, bank activity); optional Foundation Models; ChatGPT/Claude/Grok JSON prompts |
+| **Store** | SwiftData for sources, transactions, assets, reviews, corrections, summaries, anomalies |
+| **Classification** | **Type** = cash-flow role (expense / income / transfer / payment / fee / refund); **category** = spending purpose. Income / transfer / fee keep type and category aligned |
+| **Batch review** | Merchant → category overview (inline confirm); same-import duplicate compare by date; cross-import duplicate pairs with batch remove |
+| **Home** | Month/category filters; color-coded spending chart; cash flow + trends; asset balances with ~1-month forward-fill |
+| **Assets** | Checking, savings, 401(k), Roth/Traditional IRA, HSA, brokerage/investment; screenshot, JSON, or manual entry |
+| **Privacy** | On-device by default; mask account labels; configurable source-image retention; JSON backup export |
 
 - Specs: [`docs/specs/002-ios-local/`](docs/specs/002-ios-local/)
-- App guide: [`ios/README.md`](ios/README.md)
+- App guide & demo path: [`ios/README.md`](ios/README.md)
+- Balance JSON prompts: [`docs/prompts/balance-extraction.md`](docs/prompts/balance-extraction.md)
 - Domain package: [`ios/Packages/SpendingDomain`](ios/Packages/SpendingDomain)
+- Agent instructions: [`AGENTS.md`](AGENTS.md)
+
+### Quick start (iOS)
+
+```bash
+cd ios
+./scripts/generate-xcodeproj.sh   # needs: brew install xcodegen
+open SpendingAssistant.xcodeproj
+```
+
+Run the **SpendingAssistant** scheme (iOS 18+). Paste `SpendingAssistant/Resources/sample-extraction.json` or `sample-balances.json` via **Import → Paste AI JSON**, or add rows/balances manually. Details and simulator verification live in [`ios/README.md`](ios/README.md).
+
+```bash
+cd ios/Packages/SpendingDomain && swift test
+```
+
+---
 
 ## Reference MVP (v1): Drive + Sheets web app
 
-The TypeScript Next.js app below remains as a **reference implementation** (algorithm parity and historical Kaggle Capstone demos). It is Drive-first: screenshots from a Google Drive folder, cloud vision extraction, Google Sheets storage, and a single-user web dashboard.
+The TypeScript Next.js app under `src/` remains a **reference implementation** (algorithms, prompts, historical Kaggle Capstone demos). It is Drive-first: screenshots from Google Drive, cloud vision extraction, Google Sheets storage, and a single-user web dashboard. Do not add new Google-dependent product features unless explicitly requested.
 
-## For Kaggle Reviewers
+## For Kaggle Reviewers (v1 track)
 
 - Recommended track: **Concierge Agents**.
 - Fast evaluation: run `npm run verify:ci` to check docs, privacy, tests, type checking, lint, and production build without private credentials.
@@ -22,46 +51,17 @@ The TypeScript Next.js app below remains as a **reference implementation** (algo
 - Recording and upload assets can be prepared locally under `docs/submission/`, but that folder is ignored by git and is not required for public repository review.
 - Public-link guidance is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); security and privacy notes are in [SECURITY.md](SECURITY.md).
 
-## What Works Today
+## What the v1 web MVP still demonstrates
 
-- Google Drive folder ingestion for screenshots.
-- Google Sheets as the durable output store.
-- Gemini or OpenAI vision extraction.
-- Transaction normalization, validation, categorization, and review queue generation.
-- Monthly and quarterly summaries.
-- A generated `CashFlowSummary` Sheet tab for monthly spending, income, refunds, transfers/card payments, other payments, fees, and net cash flow.
-- Asset trend rows from visible balance screenshots.
-- Duplicate, spending spike, balance drop, and missing month anomalies.
-- A single-user dashboard gated by `SINGLE_USER_EMAIL`.
-- A visible review-only safety note: the assistant does not provide financial advice, initiate payments, or move money.
-- Dashboard action buttons for running the workflow, refreshing summaries, force reprocessing, and seeding demo data.
-- The dashboard can limit how many pending Drive files are processed in one run, which is useful when the folder has many screenshots.
-- A dashboard "Test setup" checklist for environment values, Drive folder access, Google Sheet tabs, service-account readiness, AI provider/model configuration, and the single-user email gate.
-- Force reprocess uses a two-step confirmation because it reruns already-known Drive files.
-- A dashboard source-file audit lists recent tracked screenshots, statuses, timestamps, and masked processing messages.
-- Source-file names link to a source evidence page with file metadata, extracted rows, open reviews/anomalies, a cached screenshot preview when available, optional row-region highlights, and a Drive handoff link.
-- A dedicated `/import` page for importing Drive snapshots into a private staging review before writing to Google Sheets.
-- A dedicated `/review` page for applying many corrections at once.
-- The Spending Analysis dashboard shows a correction notice instead of inline correction forms, so analysis stays uncluttered.
-- A spending explorer with month/category filters, a clickable monthly category pie chart, category totals, and transaction rows.
-- Spending Explorer transaction rows support inline category correction and removing a row from spending analysis.
-- Review corrections can be filtered by severity and issue type, then ranked by dollar impact inside each severity group.
-- Asset snapshot reviews, such as Card Balance checks, can be kept, ignored, or corrected from the review page.
-- Source document reviews can retry failed files, ignore unwanted files, or keep a source in its current status without editing Sheets manually.
-- Month-only batch corrections for transactions where exact dates are not needed for monthly spending totals.
-- Same-merchant transactions stay separate during review, so two transactions at the same store can receive different categories.
-- Exact same-merchant, same-date, same-amount duplicate risks default to "duplicate - exclude from spending" for the second matching row.
-- Separate dashboard metrics for spending, income, net cash flow, transfers/card payments, and unresolved review amount.
-- A next-best-actions panel that prioritizes failed source files, pending reviews, open anomalies, negative cash flow, and asset balance concerns.
-- A dashboard cash-flow table mirrors the generated `CashFlowSummary` output so reviewers can inspect money movement without opening the raw Sheet.
-- An anomaly review panel shows related transaction or asset records, supports "keep both", "mark reviewed", "ignore", and duplicate exclusion decisions, and records decisions in the Corrections tab.
-- Bank-account bill payments, such as utilities and rent, can count as spending when merchant evidence supports that category.
-- Credit card payments found in bank activity are excluded from spending totals.
-- A sanitized demo seed endpoint so you can test the dashboard without real screenshots.
+- Google Drive folder ingestion for screenshots and Google Sheets as the durable output store.
+- Gemini or OpenAI vision extraction; normalization, validation, categorization, and review queues.
+- Monthly / quarterly summaries, cash-flow totals, asset trends, and anomaly detection.
+- Single-user dashboard (`SINGLE_USER_EMAIL`) with staged import, batch review, spending explorer, and next-best actions.
+- Safety note: the assistant does not provide financial advice, initiate payments, or move money.
 
-Current limitation: screenshot-region highlighting appears only when the extraction model returns reliable coordinate hints. The dashboard now supports setup health checks, batch transaction correction, asset snapshot review correction, source-document review correction, staged import review, anomaly resolution, source-file audit, source evidence pages, cached local screenshot previews when available, and inline Spending Explorer cleanup. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the next implementation plan.
+Current limitation for v1: screenshot-region highlighting appears only when the extraction model returns reliable coordinate hints. See [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md) for the historical implementation plan.
 
-## What You Need Before Running
+## What You Need Before Running (v1 web)
 
 You need four things:
 
@@ -329,36 +329,11 @@ curl -X POST http://localhost:3000/api/workflow/run \
 
 Use force reprocess carefully because it reruns known files in that Drive folder. In the dashboard, the first click arms the action and the second click confirms it.
 
-## Current User Experience Notes
+## Current User Experience Notes (v1)
 
-The MVP now includes the first assistant-grade UX slice for a reviewer-facing Drive-first demo.
+Use the dashboard action center to test setup, import, run, or refresh the workflow. Use `/import?email=YOUR_CONFIGURED_EMAIL` for staged Drive import review, and `/review?email=YOUR_CONFIGURED_EMAIL` for batch corrections already in Sheets. The spending explorer supports month/category filters and inline category cleanup. Anomaly cards support keep-both, mark-reviewed, ignore, and duplicate exclusion.
 
-Use the dashboard action center to test setup, import, run, or refresh the workflow. The "Test setup" action checks the configured Drive folder, Google Sheet, AI provider/model, service account path, and single-user email gate without processing screenshots. Use `/import?email=YOUR_CONFIGURED_EMAIL` when you want to review extracted snapshot rows before they are logged to Google Sheets. The import page lets you:
-
-- Import snapshots from the configured Drive folder into a private staging file.
-- Review extracted spending rows grouped by each source snapshot.
-- Exclude an unwanted source snapshot before any rows are committed.
-- Correct transaction types, categories, amounts, months, and merchants before logging.
-- Select common categories from a dropdown or add a custom category when needed.
-- Save staged edits without writing to Google Sheets.
-- Commit reviewed rows to Google Sheets only when ready.
-
-Use the spending explorer on the dashboard to filter month/category totals and click a pie-chart category to inspect its transactions. From the transaction table, you can change a transaction category with a dropdown or remove a row from spending analysis. Use `/review?email=YOUR_CONFIGURED_EMAIL` when you want to clean many items already in the Sheet. The review page lets you:
-
-- Select several pending reviews and apply them in one batch.
-- Filter or fold reviews by high, medium, or low severity, then narrow by issue type such as missing field, duplicate risk, unclear category, low confidence, asset snapshot, or source file.
-- Set a month like `2026-06` for many transactions without entering exact dates.
-- Correct two transactions from the same merchant separately.
-- Mark an exact duplicate as excluded from spending, or keep it as real spending when both rows are legitimate.
-- Resolve asset snapshot reviews by keeping the snapshot, ignoring the review, or correcting month, date, balance, account label, or balance type.
-- Resolve source file reviews by retrying failed processing, ignoring an unwanted source, marking it processed, or keeping it as an error.
-- Leave "apply to future similar merchants" unchecked when same-merchant transactions should stay different.
-
-If a bank activity row is extracted as `transfer` but is actually rent or another spending category, change the staged category to `rent` or another spending category before committing. Corrected transfer rows with explicit spending categories are included in spending analysis.
-
-Use the anomaly review panel on the dashboard when the assistant finds duplicate charges, spending spikes, balance drops, or missing-month checks. Duplicate charge cards show the related transaction rows and let you keep both rows or exclude one from spending analysis. Other anomaly cards can be marked reviewed or ignored. Decisions are written back to Sheets so later summary refreshes do not reopen ignored checks.
-
-Known gaps are captured in the next implementation plan in [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md).
+Known gaps for the web MVP are captured in [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md).
 
 ## Useful API Endpoints
 
@@ -501,16 +476,15 @@ That CI-safe command skips private credential preflight, sets harmless placehold
 - [AGENTS.md](AGENTS.md): agent instructions for this project.
 - [LICENSE](LICENSE): MIT license for public project reuse.
 - [SECURITY.md](SECURITY.md): security, privacy, data-handling, and reporting notes.
-- [docs/PRD.md](docs/PRD.md): product requirement document.
-- [docs/specs/001-mvp/requirements.md](docs/specs/001-mvp/requirements.md): MVP user stories and acceptance criteria.
-- [docs/specs/001-mvp/design.md](docs/specs/001-mvp/design.md): system design and agent architecture.
-- [docs/specs/001-mvp/data-model.md](docs/specs/001-mvp/data-model.md): Google Sheets tabs and structured entities.
-- [docs/specs/001-mvp/tasks.md](docs/specs/001-mvp/tasks.md): completed MVP tasks plus the next implementation plan.
+- [docs/PRD.md](docs/PRD.md): product requirement document (includes v1 context).
+- [docs/specs/002-ios-local/](docs/specs/002-ios-local/): active iOS local-first specs.
+- [docs/specs/001-mvp/](docs/specs/001-mvp/): reference Drive/Sheets MVP specs.
+- [docs/prompts/balance-extraction.md](docs/prompts/balance-extraction.md): AI JSON prompts for account balances.
 - [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md): five-minute reviewer demo script and evaluation talking points.
 - [docs/CAPSTONE_READINESS_AUDIT.md](docs/CAPSTONE_READINESS_AUDIT.md): requirement-to-evidence submission audit.
 - [docs/SUBMISSION_PACKAGE_CHECKLIST.md](docs/SUBMISSION_PACKAGE_CHECKLIST.md): final include/exclude checklist before upload.
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): public project link and optional hosted demo guidance.
-- `docs/submission/`: optional local-only workspace for Kaggle writeup drafts, recording decks, YouTube metadata, contact sheets, and media assets. This folder is intentionally ignored by git.
+- `docs/submission/`: optional local-only workspace for Kaggle writeup drafts (ignored by git).
 - [docs/references/google-photos-picker-evaluation.md](docs/references/google-photos-picker-evaluation.md): Google Photos Picker evaluation and future extension plan.
 - [docs/MVP_SUBMISSION.md](docs/MVP_SUBMISSION.md): capstone submission notes.
-- [.env.example](.env.example): environment variable template.
+- [.env.example](.env.example): environment variable template for the v1 web app.

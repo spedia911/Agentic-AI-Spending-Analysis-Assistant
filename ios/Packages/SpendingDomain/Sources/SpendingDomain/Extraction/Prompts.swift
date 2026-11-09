@@ -1,6 +1,8 @@
 import Foundation
 
 public enum ExtractionPrompts {
+    public static let balanceTypeOptions = #"checking" | "savings" | "credit_available" | "credit_balance" | "401k" | "roth_ira" | "traditional_ira" | "hsa" | "brokerage" | "investment" | "unknown"#
+
     public static let strictJSONContract = """
 Return only valid JSON. Do not wrap it in markdown. Do not include commentary.
 The JSON object must match this shape exactly:
@@ -27,7 +29,7 @@ The JSON object must match this shape exactly:
       "row_index": 0,
       "account_label_text": "visible account label or null",
       "balance_text": "visible balance amount or null",
-      "balance_type_hint": "checking" | "savings" | "credit_available" | "credit_balance" | "unknown",
+      "balance_type_hint": \(balanceTypeOptions),
       "observed_date_text": "visible date or inferred period text or null",
       "confidence": 0.0,
       "evidence_text": "short exact nearby text that supports this balance",
@@ -43,8 +45,25 @@ The JSON object must match this shape exactly:
             "You are extracting financial screenshot data for a personal spending analysis assistant.",
             "The screenshot may contain credit card transactions, bank activity, balances, or a mix of these.",
             "Extract all visible transaction rows and all visible asset/balance snapshots.",
+            "transaction_type_hint is the cash-flow role. Use income for payroll/deposits, transfer for account moves or card payoffs, expense for purchases.",
+            "Do not invent spending categories in this JSON; categories are assigned later. Income rows should use transaction_type_hint income.",
+            "For balances, prefer masked account labels (for example Checking *1234). Never invent full account numbers.",
+            "Set balance_type_hint using: checking, savings, credit_available, credit_balance, 401k, roth_ira, traditional_ira, hsa, brokerage, investment, or unknown.",
             "If the screenshot type is clear, set screenshot_kind accordingly; otherwise use mixed or unknown.",
             "When possible, include evidence_region as normalized screenshot coordinates from 0 to 1 around each row or balance area. Use null if coordinates are not reliable.",
+            "Source document ID: \(sourceDocumentId)",
+            "File name: \(fileName)",
+            strictJSONContract
+        ].joined(separator: "\n\n")
+    }
+
+    public static func balancesPrompt(sourceDocumentId: String, fileName: String) -> String {
+        [
+            "You are extracting account balance snapshots for a personal spending analysis assistant.",
+            "Focus only on balances / portfolio values. Leave transactions as an empty array unless a clear activity row is also visible.",
+            "Supported account kinds: checking, savings, 401k, roth_ira, traditional_ira, hsa, brokerage (stocks), investment, credit_available, credit_balance.",
+            "Copy masked labels only (for example Fidelity 401k, Roth IRA *1234). Do not invent missing balances.",
+            "Use observed_date_text from the screenshot statement date when present; otherwise null.",
             "Source document ID: \(sourceDocumentId)",
             "File name: \(fileName)",
             strictJSONContract
@@ -66,7 +85,7 @@ The JSON object must match this shape exactly:
     public static func bankActivityPrompt(sourceDocumentId: String, fileName: String) -> String {
         [
             "You are extracting bank activity and visible balance data for a personal spending analysis assistant.",
-            "Focus on activity rows plus any visible checking, savings, credit balance, or available credit snapshots.",
+            "Focus on activity rows plus any visible checking, savings, credit, retirement, HSA, or brokerage snapshots.",
             "Do not expose full account numbers; copy only masked labels when visible.",
             "Source document ID: \(sourceDocumentId)",
             "File name: \(fileName)",
@@ -75,9 +94,15 @@ The JSON object must match this shape exactly:
     }
 
     public static func categoryClassificationPrompt(merchant: String, amount: Double, transactionType: TransactionType, evidenceText: String) -> String {
-        [
-            "Classify this personal finance transaction into exactly one allowed category.",
-            "Allowed categories: groceries, dining, utilities, transportation, rent, subscriptions, shopping, healthcare, transfer, income, fees, miscellaneous.",
+        let allowed = TransactionClassification.allowedCategories(for: transactionType)
+            .filter { $0 != .uncategorized }
+            .map(\.rawValue)
+            .joined(separator: ", ")
+        return [
+            "Classify this personal finance transaction into exactly one allowed category for its transaction type.",
+            "Transaction type is the cash-flow role (expense, income, transfer, payment, fee, refund).",
+            "Category is the spending purpose for expenses. Income type must use category income. Transfer type must use category transfer. Fee type must use category fees.",
+            "Allowed categories for type \(transactionType.rawValue): \(allowed).",
             "Return only JSON with keys category, confidence, reason.",
             "Merchant: \(merchant)",
             "Amount: \(amount)",

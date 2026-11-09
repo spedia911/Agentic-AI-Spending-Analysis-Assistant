@@ -27,7 +27,13 @@ As the user, I see monthly/quarterly category totals, cash flow, asset trends, a
 As the user, I can open a source document and see the image, extracted rows, and linked reviews/anomalies.
 
 ### US-009 Retention and export
-As the user, I can configure source-image retention and export a CSV/JSON backup of transactions and summaries.
+As the user, I can configure source-image retention, explicitly delete the stored image while retaining extracted records, and export a CSV/JSON backup of transactions and summaries.
+
+### US-010 Manual activity and correction
+As the user, I can add spending or other activity without a screenshot, search my transactions by merchant/card, and correct fields or category while preserving audit evidence.
+
+### US-011 Card and layout context
+As the user, I can choose Apple Card or Capital One Venture X, enter another card name, select a screenshot layout, and supply a statement month for yearless date headers.
 
 ## Non-functional
 

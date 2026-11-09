@@ -47,8 +47,9 @@ public enum Validator {
             }
             var copy = transaction
             if copy.validationStatus != .rejected {
-                copy.validationStatus = issues.isEmpty ? .valid : .needsReview
-                copy.reviewStatus = issues.isEmpty ? .none : .pending
+                let hasRequiredIssue = issues.contains { $0.type != .lowConfidence }
+                copy.validationStatus = hasRequiredIssue ? .needsReview : .valid
+                copy.reviewStatus = hasRequiredIssue ? .pending : (copy.reviewStatus == .resolved ? .resolved : .none)
             }
             copy.updatedAt = context.now
             reviews += issues.map { issue in
@@ -91,6 +92,9 @@ public enum Validator {
             issues.append(Issue(type: .missingField, field: "amount", severity: .high, question: "Enter a nonzero amount."))
         } else if abs(tx.amount) > 10000 && tx.transactionType == .expense {
             issues.append(Issue(type: .anomaly, field: "amount", severity: .medium, question: "This expense is unusually large. Correct it or confirm it."))
+        }
+        if tx.transactionType == .unknown {
+            issues.append(Issue(type: .missingField, field: "transaction_type", severity: .medium, question: "Choose the transaction type. An unclassified credit is not counted as income."))
         }
         if tx.extractionConfidence < 0.75 {
             issues.append(Issue(type: .lowConfidence, field: "extraction", severity: .medium, question: "Check the extracted fields against the source before confirming."))

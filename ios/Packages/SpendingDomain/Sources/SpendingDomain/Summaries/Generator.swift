@@ -107,7 +107,7 @@ public enum SummaryGenerator {
         for transaction in transactions.filter(isUsable) {
             var current = grouped[transaction.observedMonth] ?? Agg()
             current.spending += SpendingMath.spendingAmount(transaction)
-            current.income += transaction.transactionType == .income ? abs(transaction.amount) : 0
+            current.income += SpendingMath.incomeAmount(transaction)
             current.refund += transaction.transactionType == .refund ? abs(transaction.amount) : 0
             current.transfer += SpendingMath.transferAmount(transaction)
             if transaction.transactionType == .payment,
@@ -193,7 +193,9 @@ public enum SummaryGenerator {
     }
 
     private static func summaryAmount(_ transaction: TransactionRecord) -> Double {
-        if SpendingMath.spendingAmount(transaction) > 0 || transaction.transactionType == .income || transaction.transactionType == .refund {
+        if SpendingMath.spendingAmount(transaction) > 0
+            || SpendingMath.isIncome(transaction)
+            || transaction.transactionType == .refund {
             return abs(transaction.amount)
         }
         return 0

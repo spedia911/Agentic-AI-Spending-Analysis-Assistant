@@ -30,7 +30,7 @@ public enum DashboardInsightBuilder {
     public static func build(_ data: DashboardSnapshot) -> [DashboardInsight] {
         var insights: [DashboardInsight] = []
         let sourceErrors = data.sourceDocuments.filter { $0.status == .error }
-        let pendingReviews = data.reviewItems.filter { $0.status == .pending }
+        let pendingReviews = data.reviewItems.filter { $0.status == .pending && !$0.isAdvisory }
         let openAnomalies = data.anomalies.filter { $0.status == .open }
         let latestFlow = data.cashFlowSummaries.sorted { $0.month > $1.month }.first
         let concern = data.assetTrends.filter { $0.maintainabilityFlag == .concern }.sorted { $0.month > $1.month }.first

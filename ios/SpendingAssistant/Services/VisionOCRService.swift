@@ -22,15 +22,22 @@ enum VisionOCRService {
             case .rightMirrored: orientation = .rightMirrored
             @unknown default: orientation = .up
             }
+            // Normalize high-bit-depth screenshots into a Vision-compatible 8-bit buffer.
+            guard let context = CGContext(data: nil, width: cgImage.width, height: cgImage.height,
+                bitsPerComponent: 8, bytesPerRow: cgImage.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw OCRError.invalidImage }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+            guard let ocrImage = context.makeImage() else { throw OCRError.invalidImage }
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
-            try VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:]).perform([request])
+            try VNImageRequestHandler(cgImage: ocrImage, orientation: orientation, options: [:]).perform([request])
             return (request.results ?? []).compactMap { observation -> OCRLine? in
-                guard let text = observation.topCandidates(1).first?.string else { return nil }
+                guard let candidate = observation.topCandidates(1).first else { return nil }
+                let text = candidate.string
                 let box = observation.boundingBox
                 return OCRLine(text: text, boundingBox: EvidenceRegion(x: box.origin.x,
-                    y: 1 - box.origin.y - box.height, width: box.width, height: box.height))
+                    y: 1 - box.origin.y - box.height, width: box.width, height: box.height), confidence: Double(candidate.confidence))
             }
         }.value
     }

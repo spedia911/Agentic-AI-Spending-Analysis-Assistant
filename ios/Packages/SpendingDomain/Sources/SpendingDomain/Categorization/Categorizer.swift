@@ -172,13 +172,30 @@ public enum Categorizer {
                correction.fieldName == "category",
                let category = isSpendingCategory(correction.newValue),
                category != .uncategorized {
-                map[normalizeKey(correction.targetId)] = category
+                map[ruleKey(target: correction.targetId)] = category
             }
         }
         return map
     }
 
-    private static func normalizeKey(_ value: String) -> String {
+    public static func ruleTarget(_ merchant: String, origin: TransactionOrigin?) -> String {
+        guard let origin else { return merchant }
+        return origin.rawValue + "|" + merchant
+    }
+
+    public static func scopedMerchantKey(_ merchant: String, origin: TransactionOrigin?) -> String {
+        (origin?.rawValue ?? "other") + "|" + merchantKey(merchant)
+    }
+
+    public static func ruleKey(target: String) -> String {
+        let parts = target.split(separator: "|", maxSplits: 1)
+        if parts.count == 2, let origin = TransactionOrigin(rawValue: String(parts[0])) {
+            return scopedMerchantKey(String(parts[1]), origin: origin)
+        }
+        return scopedMerchantKey(target, origin: nil)
+    }
+
+    public static func merchantKey(_ value: String) -> String {
         String(value.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 
@@ -191,11 +208,14 @@ public enum Categorizer {
         corrections: [String: SpendingCategory],
         threshold: Double
     ) -> Decision {
-        if let typed = categoryForTransactionType(transaction) { return typed }
-
         let merchant = transaction.merchantNormalized.isEmpty ? transaction.merchantRaw : transaction.merchantNormalized
-        if let correction = corrections[normalizeKey(merchant)] {
+        if let correction = corrections[scopedMerchantKey(merchant, origin: transaction.origin)] {
             return Decision(category: correction, confidence: 0.99, reason: "Matched user correction memory.", alternatives: [], needsReview: false)
+        }
+
+        if let typed = categoryForTransactionType(transaction) { return typed }
+        if transaction.origin == .card, matches(#"\b(annual fee|membership fee)\b"#, in: transaction.evidenceText) {
+            return Decision(category: .fees, confidence: 0.96, reason: "Card statement lists a fee.", alternatives: [], needsReview: false)
         }
 
         for rule in rules {
@@ -253,6 +273,8 @@ public enum Categorizer {
         updated.category = decision.category
         updated.categoryConfidence = decision.confidence
         updated.updatedAt = now
+        // Type wins for income/transfer/fee; spending categories never stick on those rows.
+        _ = TransactionClassification.normalize(&updated, prefer: .type)
         if decision.needsReview {
             updated.validationStatus = .needsReview
             updated.reviewStatus = .pending

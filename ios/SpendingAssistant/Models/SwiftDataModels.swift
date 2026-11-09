@@ -17,6 +17,11 @@ final class SDSourceDocument {
     var rawText: String?
     var contentFingerprint: String?
     var importedJSON: String?
+    var cardName: String?
+    var screenshotLayout: String?
+    var observedMonthHint: String?
+    var ocrLinesJSON: String?
+    var imageDeletedAt: Date?
 
     init(from record: SourceDocumentRecord) {
         self.sourceDocumentId = record.sourceDocumentId
@@ -32,6 +37,11 @@ final class SDSourceDocument {
         self.rawText = record.rawText
         self.contentFingerprint = record.contentFingerprint
         self.importedJSON = record.importedJSON
+        self.imageDeletedAt = record.imageDeletedAt
+        self.ocrLinesJSON = record.ocrLinesJSON
+        self.observedMonthHint = record.observedMonthHint
+        self.screenshotLayout = record.screenshotLayout
+        self.cardName = record.cardName
     }
 
     func apply(_ record: SourceDocumentRecord) {
@@ -47,6 +57,11 @@ final class SDSourceDocument {
         rawText = record.rawText
         contentFingerprint = record.contentFingerprint
         importedJSON = record.importedJSON
+        imageDeletedAt = record.imageDeletedAt
+        ocrLinesJSON = record.ocrLinesJSON
+        observedMonthHint = record.observedMonthHint
+        screenshotLayout = record.screenshotLayout
+        cardName = record.cardName
     }
 
     func toRecord() -> SourceDocumentRecord {
@@ -63,7 +78,12 @@ final class SDSourceDocument {
             errorSummary: errorSummary,
             rawText: rawText,
             contentFingerprint: contentFingerprint,
-            importedJSON: importedJSON
+            importedJSON: importedJSON,
+            cardName: cardName,
+            screenshotLayout: screenshotLayout,
+            observedMonthHint: observedMonthHint,
+            ocrLinesJSON: ocrLinesJSON,
+            imageDeletedAt: imageDeletedAt
         )
     }
 }
@@ -79,6 +99,7 @@ final class SDTransaction {
     var amount: Double
     var transactionTypeRaw: String
     var accountLabel: String
+    var originRaw: String?
     var categoryRaw: String
     var categoryConfidence: Double
     var extractionConfidence: Double
@@ -99,6 +120,7 @@ final class SDTransaction {
         self.amount = record.amount
         self.transactionTypeRaw = record.transactionType.rawValue
         self.accountLabel = record.accountLabel
+        self.originRaw = record.origin?.rawValue
         self.categoryRaw = record.category.rawValue
         self.categoryConfidence = record.categoryConfidence
         self.extractionConfidence = record.extractionConfidence
@@ -119,6 +141,7 @@ final class SDTransaction {
         amount = record.amount
         transactionTypeRaw = record.transactionType.rawValue
         accountLabel = record.accountLabel
+        originRaw = record.origin?.rawValue
         categoryRaw = record.category.rawValue
         categoryConfidence = record.categoryConfidence
         extractionConfidence = record.extractionConfidence
@@ -141,6 +164,7 @@ final class SDTransaction {
             amount: amount,
             transactionType: TransactionType(rawValue: transactionTypeRaw) ?? .unknown,
             accountLabel: accountLabel,
+            origin: originRaw.flatMap(TransactionOrigin.init(rawValue:)),
             category: SpendingCategory(rawValue: categoryRaw) ?? .uncategorized,
             categoryConfidence: categoryConfidence,
             extractionConfidence: extractionConfidence,

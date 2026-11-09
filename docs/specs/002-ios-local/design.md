@@ -68,7 +68,7 @@ flowchart TD
 
 1. Persist source image under Application Support `Sources/`.
 2. Run Vision OCR → `raw_text` + line boxes.
-3. Heuristic line parser looks for date + amount + merchant patterns.
+3. Layout-aware parser combines Vision geometry into merchant/amount pairs and row dates or preceding date headers. Apple Card and Capital One layouts have explicit presets; card names and statement-month context are editable.
 4. If incomplete and Foundation Models available: structure OCR text into extraction JSON schema.
 5. Else if user provides AI JSON: validate and ingest.
 6. Feed candidates through normalize → validate → categorize → persist.
@@ -86,7 +86,7 @@ Same strategy as 001-mvp: SHA-256 truncated hash of `sourceDocumentId|rowIndex|d
 
 ## Source types
 
-`photos` | `files` | `share` | `ai_import`
+`photos` | `files` | `share` | `ai_import` | `manual`
 
 ## Error handling
 
@@ -98,9 +98,21 @@ Same strategy as 001-mvp: SHA-256 truncated hash of `sourceDocumentId|rowIndex|d
 
 - No secrets in repo.
 - Mask long numbers, emails, and secret-like tokens in logs.
-- Configurable source image retention days; cleanup on launch and settings change.
+- Configurable source image retention days; cleanup on launch and settings change. Explicit stored-image deletion preserves local rows, OCR geometry, and deduplication identity; it does not alter the system Photos library.
 - App Group only for Share Extension inbox handoff.
 
 ## Relationship to v1
 
 The TypeScript Next.js app under `src/` remains a **reference implementation** for algorithm parity and historical capstone demos. New product work targets `ios/`.
+
+## Manual entry and correction
+
+Home and Import link to a searchable transaction list. Manual input creates a `manual` source, validates fields and duplicate risk, applies category rules or an explicit category, and commits rows/reviews/derived summaries atomically. A source detail can also receive manual rows linked to its original evidence. Corrections preserve transaction identity and original evidence. Only an explicit category change resolves category review.
+
+Optional Foundation Models calls use availability checks on iOS 26+, operate locally on OCR text, and confidence-cap generated extraction/category suggestions for review. They are an enhancement to deterministic layout parsing, not a requirement for the two supported screenshot styles. Failed sources can reparse retained OCR geometry after image deletion; sources with existing rows use manual correction instead of silent re-extraction.
+
+## Dashboard time series and shared editors
+
+Home uses the selected month as the end of recorded history. The spending view applies the category filter to both its totals and its drill-down rows. Cash flow remains across accounts; it comes from the same persisted monthly summaries that are rebuilt after import, correction, or deletion. Linear fits use the actual distance between recorded months. Year-over-year comparisons require the matching prior-year month. Asset projections use reviewed or unflagged checking/savings snapshots grouped by account and type, with the latest observed balance per month.
+
+Review, Transactions, and Sources open the same transaction editor. A category change and any field corrections commit together; saving asks whether to add a merchant rule. Open issues stay separate from resolved issue history. Source and balance swipe actions open their respective editors, and destructive actions identify which underlying record will be removed.

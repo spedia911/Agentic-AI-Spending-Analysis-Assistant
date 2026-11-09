@@ -36,6 +36,10 @@ public enum Normalizer {
         return (isParenthesesNegative || hasNegativeSign) ? -numeric : numeric
     }
 
+    public static func isValidStatementDateHint(_ value: String) -> Bool {
+        Validator.isValidDate(value + (value.count == 4 ? "-01-01" : "-01"))
+    }
+
     public static func normalizeDateText(_ value: String?, observedMonthHint: String?) -> String? {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,15 +55,15 @@ public enum Normalizer {
         }
 
         let monthNames = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
-        if let regex = try? NSRegularExpression(pattern: #"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})\b"#, options: .caseInsensitive),
-           let observedMonthHint,
+        if let regex = try? NSRegularExpression(pattern: #"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s+(20\d{2}))?\b"#, options: .caseInsensitive),
            let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
            match.numberOfRanges >= 3,
            let monthRange = Range(match.range(at: 1), in: trimmed),
            let dayRange = Range(match.range(at: 2), in: trimmed) {
             let mon = String(trimmed[monthRange]).prefix(3).lowercased()
             if let idx = monthNames.firstIndex(of: String(mon)) {
-                let year = String(observedMonthHint.prefix(4))
+                let explicitYear = Range(match.range(at: 3), in: trimmed).map { String(trimmed[$0]) }
+                guard let year = explicitYear ?? observedMonthHint.map({ String($0.prefix(4)) }) else { return nil }
                 let month = String(idx + 1).padLeft(to: 2, with: "0")
                 let day = String(trimmed[dayRange]).padLeft(to: 2, with: "0")
                 return "\(year)-\(month)-\(day)"
@@ -90,7 +94,7 @@ public enum Normalizer {
         if let date, date.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
             return String(date.prefix(7))
         }
-        return fallback ?? "unknown"
+        return fallback.flatMap { $0.count == 7 ? $0 : nil } ?? "unknown"
     }
 
     public static func normalizeMerchant(_ value: String?) -> String {
@@ -137,7 +141,6 @@ public enum Normalizer {
         if date == nil { reasons.append("missing_date") }
         if candidate.merchantText == nil || candidate.merchantText?.isEmpty == true { reasons.append("missing_merchant") }
         if amount == nil { reasons.append("missing_amount") }
-        if candidate.confidence < 0.75 { reasons.append("low_extraction_confidence") }
 
         let transaction = TransactionRecord(
             transactionId: transactionId,

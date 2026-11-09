@@ -21,7 +21,7 @@ Monthly personal spending review from credit-card and bank screenshots is slow a
 
 ## What stays
 
-- Screenshot-first input (not PDFs in MVP).
+- Screenshot-first input, with supported text-based bank statement PDF import from Files.
 - Agentic loop: decide what to process → extract → normalize → validate → categorize → review → summaries → anomalies → action insights.
 - Human-in-the-loop review queue and correction memory.
 - Evidence audit from row back to source image.
@@ -40,6 +40,6 @@ Monthly personal spending review from credit-card and bank screenshots is slow a
 - Live Google Drive / Sheets backend
 - Required cloud AI API keys
 - Bank login / Plaid
-- PDF statements
+- Scanned, locked, or unsupported PDF layouts
 - Multi-user sync / iCloud sharing
 - Direct private SDK hooks into ChatGPT / Claude / Grok apps

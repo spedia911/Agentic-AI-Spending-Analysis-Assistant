@@ -8,6 +8,7 @@ public struct PipelineInput: Sendable {
     public var corrections: [CorrectionRecord]
     public var existingAssets: [AssetSnapshotRecord]
     public var observedMonthHint: String?
+    public var origin: TransactionOrigin?
     public var now: Date
 
     public init(
@@ -18,6 +19,7 @@ public struct PipelineInput: Sendable {
         corrections: [CorrectionRecord] = [],
         existingAssets: [AssetSnapshotRecord] = [],
         observedMonthHint: String? = nil,
+        origin: TransactionOrigin? = nil,
         now: Date = Date()
     ) {
         self.sourceDocumentId = sourceDocumentId
@@ -27,6 +29,7 @@ public struct PipelineInput: Sendable {
         self.existingAssets = existingAssets
         self.corrections = corrections
         self.observedMonthHint = observedMonthHint
+        self.origin = origin
         self.now = now
     }
 }
@@ -63,7 +66,9 @@ public enum ProcessingPipeline {
         let existingIds = Set(input.existingTransactions.map(\.transactionId))
         let existingAssetIds = Set(input.existingAssets.map(\.assetSnapshotId))
         let validated = Validator.validate(
-            normalized.transactions.filter { !existingIds.contains($0.transactionId) },
+            normalized.transactions.filter { !existingIds.contains($0.transactionId) }.map {
+                var row = $0; row.origin = input.origin; return row
+            },
             context: ValidationContext(now: input.now),
             existingTransactions: input.existingTransactions
         )

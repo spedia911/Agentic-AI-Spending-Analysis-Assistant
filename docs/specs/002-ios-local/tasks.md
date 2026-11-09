@@ -37,7 +37,7 @@
 
 1. Open `ios/SpendingAssistant.xcodeproj` (generate via `ios/scripts/generate-xcodeproj.sh` if needed).
 2. Run on simulator or device (iOS 18+).
-3. Tap **Seed demo data** on Home, or Import → paste sample JSON from Resources.
+3. Use Import → Input type → Paste AI JSON with the synthetic sample from Resources.
 4. Open Review, resolve one category, confirm Home insights update.
 5. Settings → Export backup.
 
@@ -45,9 +45,10 @@
 
 ### Product / UX
 - [ ] Harden real-screenshot OCR on bank/credit-card layouts (multi-column, Korean/English mixed)
-- [ ] Wire Foundation Models structurizer + category classifier for real on-device calls (replace no-op stubs)
-- [ ] Improve Review UX (batch resolve, severity filters, dollar impact ranking like v1 web)
-- [ ] Asset trend charts on Home (generator exists; UI mostly cash-flow + categories today)
+- [x] Wire availability-gated Foundation Models extraction and category calls; physical-device quality validation remains outstanding
+- [x] Batch anomaly / merchant correction UX (same-import date compare, overview category confirm)
+- [x] Color-coded spending-by-category chart
+- [x] Asset balances: expanded account types, manual entry, one-month forward-fill, balances JSON prompt
 - [ ] Face ID lock / privacy screen before showing balances
 - [ ] Onboarding: copyable AI prompt + first-import walkthrough
 
@@ -87,4 +88,57 @@
 - [x] Simulator regression: 12 integration tests and 1 UI smoke passed; 19 domain tests passed
 - [x] Live synthetic-image check: Photos Share imported one $12 Safeway row on foreground; Photos picker and Files both reported already imported
 
-Deferred: editable asset reviews, Foundation Models calls, real bank OCR layouts, dashboard expansion, and signed device/TestFlight validation.
+Deferred: editable asset reviews, additional bank OCR layouts, dashboard expansion, physical-device model quality checks, and signed TestFlight validation.
+
+## Real screenshot and manual-entry increment
+
+- [x] Apple Card multiline transaction rows and Capital One date-header rows using Vision geometry
+- [x] Local 16-bit screenshot normalization before Vision; retained OCR geometry/confidence for retry
+- [x] Apple Card / Capital One Venture X presets, custom card labels, layout override, optional statement month
+- [x] Stored-image deletion with confirmation; preserve records, evidence, and deduplication identity
+- [x] Manual spending/activity entry and searchable transaction list; category/field editing for existing rows
+- [x] Foundation Models availability-gated local calls; generated suggestions routed to review
+- [x] Private local validation of all visible dates and amounts across eight supplied screenshots (45 candidates, including overlap)
+- [x] Verification: 26 domain tests, 17 simulator integration tests, and 2 UI tests passed; source/built plists, scheme, and documentation checks verified
+
+Personal screenshots and their OCR output are excluded from committed fixtures; layout tests use invented merchants and amounts. Overlapping screenshots produce duplicate-risk review rather than silently erasing potentially separate charges.
+
+## Record deletion and clearer review
+- [x] Single and bulk transaction deletion, confirmed source deletion, and refreshed totals.
+- [x] Transaction summary, issue-specific review instructions, explicit category save, and undo on the detail page.
+- [x] Integration coverage for deletion rollback, source reimport, and review undo.
+
+
+## Consistent record actions and dashboard trends
+- [x] Swipe edit/delete on transaction, source, and balance rows; edit records from their shared detail views.
+- [x] Unified transaction summary with explicit merchant memory choice, plus Unreviewed and Reviewed filters.
+- [x] Home month/category filters, cash flow regression and year-over-year comparisons, and per-account asset projections.
+- [x] Screenshot-first Import with settings and input type controls; remove the user-facing seed action.
+- [x] Recognize labeled income from bank screenshots; leave ambiguous credits for review.
+- [x] Text-based bank statement PDF import from Files for the supported checking/savings table layout.
+
+
+## Transaction confirmation and optional evidence
+- [x] Select known accounts or enter a custom account in the shared transaction summary.
+- [x] Confirm unchanged or edited transactions, with an explicit category prompt when needed.
+- [x] Keep transaction extraction confidence advisory and accessible with source evidence in the detail menu.
+
+
+## Bank statement recovery and bulk review
+- [x] Read bank screenshot amounts separately from running balances and handle abbreviated date headers.
+- [x] Recover physical PDF rows, verify signed amounts against running balances, and store the closing snapshot.
+- [x] Apply account corrections to a screenshot source and category corrections to a matching merchant group.
+- [x] Add merchant review and return to the previous list after completed confirmation.
+
+
+## Missing screenshot metadata
+- [x] Stage recognized screenshots with a missing year, date, or account, and resume without rerunning OCR.
+- [x] Prompt after import, with a Sources recovery path and an individual date review option.
+- [x] Repair source account labels and yearless dates in place while preserving explicit and manually entered dates.
+
+
+## System theme and statement context
+- [x] Use a theme-aware Home background.
+- [x] Pick a year and month and offer to reuse them within an import batch.
+- [x] Fill missing statement metadata from clear filename hints; keep printed metadata first.
+- [x] Scope merchant categories to bank or card origin and return to the list after confirmation.
