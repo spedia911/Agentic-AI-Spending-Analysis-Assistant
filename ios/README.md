@@ -34,7 +34,8 @@ Local-first SwiftUI app for screenshot-based spending analysis. No Google Drive,
 
 ### Privacy & export
 - On-device by default; masked account labels; configurable source-image retention
-- Delete stored image without dropping extracted rows/OCR; JSON backup export from Settings
+- Delete stored image without dropping extracted rows/OCR; versioned JSON backup + CSV export and replace-only restore from Settings
+- Stable account UUIDs / ISO currencies, eligibility gating, optional Face ID lock, private-device validation checklist
 
 ## Requirements
 
@@ -69,11 +70,12 @@ Install XcodeGen with `brew install xcodegen` first. The generator exits with an
 ## Try the app on a simulator
 
 1. Run **SpendingAssistant**. A fresh install starts empty.
-2. **Import → Input type → Paste AI JSON** and paste `SpendingAssistant/Resources/sample-extraction.json`, or **Add transaction manually** / **Add balance manually**. For balances-only practice, use `sample-balances.json` or **Copy balances-only prompt**.
-3. **Review → Batch corrections**: confirm merchant categories from the overview, and open **Duplicates & anomalies** for same-import date compare or import-pair cleanup.
-4. Open an individual transaction if needed, edit type/category (pickers stay consistent), and **Confirm**.
-5. Return to **Home**: pick a month, inspect the color-coded category chart, cash flow, and asset trends.
-6. **Settings → Export JSON backup → Share export file**.
+2. **Settings → Accounts & currencies**: create synthetic USD and KRW accounts (same display labels stay distinguishable by ID).
+3. **Import → Input type → Paste AI JSON** and paste `SpendingAssistant/Resources/sample-extraction.json`, or **Add transaction manually** / **Add balance manually** with account/currency selection. For balances-only practice, use `sample-balances.json` or **Copy balances-only prompt**.
+4. **Review → Batch corrections**: confirm merchant categories from the overview, and open **Duplicates & anomalies** for same-import date compare or import-pair cleanup. Map any unmapped rows via **Review → Account & currency**.
+5. Return to **Home**: pick a currency and month, inspect separate totals, excluded-count repair, cash flow, and asset previous-observation / carried-forward labels.
+6. **Home → Export**: share a desktop JSON snapshot or transaction CSV. To test recovery, use **Settings → Data safety → Backup & restore**, save a backup, change or delete a record, then restore it.
+7. Optional: enable **Require Face ID / device passcode**, background the app, and confirm the privacy cover.
 
 ## Domain tests
 
@@ -125,7 +127,26 @@ Manual ingestion check (use synthetic images only):
 4. Share invalid JSON text. It must remain under **Share items needing attention** across foreground transitions; retry explicitly or delete the pending attachment.
 5. Import an image with no financial rows. Inspect the retained OCR/error, attach sample JSON in that source, and verify the error review resolves without creating a second source.
 
-Device/TestFlight validation still requires your signing team, registered App Group, and personal screenshots kept outside Git.
+Device/TestFlight validation still requires your signing team, registered App Group, and personal screenshots kept outside Git. Use [`docs/VALIDATION_CHECKLIST.md`](docs/VALIDATION_CHECKLIST.md) and `./scripts/accuracy-report.sh` for private annotated Korean/English samples; screenshots and OCR stay out of the repository.
+
+## Export to a Mac
+
+Open **Home → Export** or **Settings → Export data**. **Share desktop export** sends a full JSON snapshot of transactions, balances, and evidence for Asset Management Assistant. Original images and PDFs are omitted. Import the latest file after each round of capture or review so the desktop receives new rows, edits, and deletions. The screen shows how many records are eligible for desktop totals. **Share transaction CSV** includes all transactions and billed currencies for Excel or Numbers.
+
+Run these commands from the desktop Asset Management Assistant workspace:
+
+```bash
+python3 asset.py import ios "/path/to/spending-desktop-export.json"
+python3 asset.py report
+open .local/reports/report.html
+```
+
+## Backup, restore, and privacy
+
+- **Settings → Data safety → Backup & restore → Save backup file** creates a recovery snapshot. You can include retained originals. Restore validates the backup and shows a preview before replacement. Independently edited copies do not synchronize.
+- **Source file retention** removes aged copies stored by the app when it opens or when you run cleanup. The default is 30 days. Choose 0 days to keep copies indefinitely. Extracted records, OCR evidence, and reviews remain, as do originals in Photos or Files.
+- Shared files contain sensitive data. The app protects its temporary copies and cleans them up after sharing or when it next launches.
+- The optional **Face ID / device passcode** lock covers content when inactive or locked. Cancelling unlock leaves the cover up and pauses financial-data processing.
 
 Live Share verification requires a signed simulator build so iOS registers the App Group. No developer certificate is needed for simulator ad-hoc signing:
 
@@ -167,13 +188,13 @@ Foundation Models runs locally only when the device reports availability; unavai
 
 - **Home → View and correct transactions:** swipe left on a row and tap **Delete**. The first swipe deletion asks for confirmation. For several rows, tap **Select**, choose the rows, then tap **Delete selected** and confirm. You can also delete from an individual transaction’s detail page. These actions keep the source and remove the selected transactions from totals.
 - **Sources → source → Delete source and all its records:** confirm to remove the app’s stored image and evidence, linked transactions, balances, and reviews. The original in Photos and correction history remain. The screenshot can be imported again. Use **Delete stored image** to keep the extracted records and OCR.
-- **Review → transaction:** check the date, merchant, amount, item type, and default USD currency against the evidence. Choose an existing account or enter a new name. Tap **Confirm** even when no edits are needed. If a category needs confirmation, review the suggestion and choose whether to remember it. Saving or confirming one issue leaves unrelated issues pending. Use **Undo last review or edit** while the detail page is open to restore the previous values, review state, and remembered category. You can edit the category later from the transaction list.
+- **Review → transaction:** check the date, merchant, amount, item type, and account/currency against the evidence. Choose a mapped account (or leave unmapped to exclude from totals). Tap **Confirm** even when no edits are needed. If a category needs confirmation, review the suggestion and choose whether to remember it. Saving or confirming one issue leaves unrelated issues pending. Use **Undo last review or edit** while the detail page is open to restore the previous values, review state, and remembered category. You can edit the category later from the transaction list.
 
 ## Home trends, batch review, and bank screenshots
 
-- Home defaults to the latest recorded month. Pick another month to change the spending summary and the end of the historical charts. The category filter narrows spending and its transaction list; cash flow remains account-wide. Spending bars are color-coded by category.
+- Home defaults to the latest recorded month and partitions totals by ISO currency (no FX conversion). Transactions with no assigned currency or conflicting billed evidence are excluded with a link to the Account & currency review queue. Pick another month to change the spending summary and the end of the historical charts. The category filter narrows spending and its transaction list; cash flow is portfolio-wide within the selected currency. Spending bars are color-coded by category. Gross spending, refunds, and net spending are shown separately.
 - Cash flow shows recorded monthly net flow and a dashed least squares line from two or more recorded months. Year over year compares the exact same month last year; a missing comparison is shown as unavailable and a zero baseline has no percentage. Months without data are not treated as zero. Income totals follow **type = income** (kept in sync with category Income).
-- Asset trends include checking, savings, retirement, HSA, and brokerage accounts. Sparse updates are carried forward for up to about one month. Three distinct months enable a dashed three-month linear projection. Credit lines and open balance reviews are excluded from this projection.
+- Asset trends group by account ID, balance type, and currency. Sparse updates are carried forward for up to about one month and labelled with the original observation date. When the prior calendar month is missing, Home shows previous-observation date and change instead of a false MoM. Three distinct months enable a dashed three-month historical extrapolation (not an investment-return forecast). Credit lines and open balance reviews are excluded.
 - **Review → Batch corrections** is the primary path for merchant categories and duplicates. Same-import duplicates list every related date before compare/remove. Individual Unreviewed items remain for one-offs; sort by lowest confidence or newest.
 - **Import → Import settings (•••) → Screenshot layout → Bank activity** parses clearly labeled payroll and deposits as income, with transfers and card payments kept separate. Review ambiguous credits and verify the transaction type. Supported text-based bank statement PDFs can be imported from Files; image-only PDFs are not parsed directly.
 
@@ -185,7 +206,7 @@ The normal Review queue prioritizes missing fields, category decisions, anomalie
 
 - **Bank screenshots:** set the account and **Statement month** in **Import → •••** when the screen shows only dates like “Oct 8.” If you leave it blank, import asks for the missing year and account after reading the screenshot. The bank parser reads the amount beside the merchant, skips the running balance underneath, and uses the row's deposit or transfer label. Confirm the type of ambiguous credits. To recover a failed source without rows, save the month and layout in **Sources**, then retry. A completed source remains deduplicated; if a prior attempt produced incorrect rows, review them or delete that source before reimporting.
 - **PDF statements:** select **Import → Choose from Files (images or PDF)**. The supported format is an unlocked text PDF with one checking or savings account, a printed statement period, signed amounts, and opening, running, and closing balances. An unreconciled table imports no rows. The closing balance appears in asset history, and the original PDF is available from **Sources → View original PDF**. Scanned, locked, and other unsupported layouts show an error; use screenshots or structured JSON for those.
-- **Account matching:** changing an account on a screenshot transaction defaults to matching the other transactions from the same source and updating its account label. Turn off **Match account for this screenshot** to correct only one row.
+- **Account matching:** changing an account applies to one transaction. Turn on **Match account for this screenshot** to explicitly update the other transactions from that source.
 - **Merchant categories:** **Review → Merchant categories** lists merchants with an inline category picker and Confirm. Choosing Income or Transfer also updates transaction type. **Confirm categories for N merchants** applies mixed selections in one step. Matching ignores case, spaces, and punctuation; bank and card activity stay separately scoped when remembering rules.
 - **Confirm** on a transaction detail returns to the previous list after saving. Required issues remain in Review until resolved.
 
@@ -193,7 +214,7 @@ The normal Review queue prioritizes missing fields, category decisions, anomalie
 
 When the app recognizes transaction rows but cannot read their year or account, it shows **Screenshot details** before importing the rows. Choose a year and an optional statement month, and choose a known account or enter a name. The original month and day on each row are kept. If dates cannot be read at all, enter a date only if it applies to every undated row, or choose to review the dates individually.
 
-**Later** keeps the original and OCR for **Sources → source → Finish import**. For a source that already has transactions, **Account and date details → Save source details** updates its account and repairs yearless dates that can be matched to the original evidence. Dates with a year in the screenshot and dates edited manually stay as entered. Changes update the existing transactions and summaries without reimporting the source.
+**Later** keeps the original and OCR for **Sources → source → Finish import**. For a source that already has transactions, **Account and date details → Save source details** saves the account to that source and repairs matching yearless dates. Turn on **Apply account to existing records from this source** to also update its existing rows. Dates with a year in the screenshot and dates edited manually stay as entered. Changes update the existing transactions and summaries without reimporting the source.
 
 ## Theme, date reuse, and statement-specific categories
 
@@ -201,3 +222,17 @@ When the app recognizes transaction rows but cannot read their year or account, 
 - When screenshot import needs a year, select it in the picker. Select a statement month if needed (especially around New Year). The app asks whether to use the same selection for the remaining yearless screenshots in that batch. It leaves each account and any readable dates alone.
 - PDFs use dates and accounts printed on the statement first. A name like `20261031-Sample Checking.pdf` can fill in missing context. The file still has to reconcile against its opening, running, and closing balances.
 - In merchant category review, bank and card transactions are separate groups. A category you remember for a bank payment does not change a fee from the same issuer on a card statement. Existing categories are preserved; older unscoped rules continue to apply to activity without an identified statement type.
+
+
+## Account and billed currency
+
+Choose an account on Import before picking an image or statement. The control shows the account’s normal currency and uses its saved identity. Use **Create account…** from the same control to create and select one in place. If the source provides an account name or currency, the form suggests it. Search currencies by code or localized name. **Settings → Default currency** assigns a currency to transactions that have no account or assigned currency. It fills previously unassigned transactions and applies to future imports and manual entries. Changing it preserves currencies already assigned.
+
+Review compares the assigned currency with markers beside the billed amount. A bare dollar sign needs account or user context. An explicitly labeled original purchase amount is separate. Use **Review → Account & currency** to compare evidence, resolve one row, or map unmapped rows from one source together.
+
+An explicit billed currency correction applies to one transaction and counts locally in that currency. If the billed currency differs from the account currency, the v1 backup retains the account pair, preserves the correction, and marks the transaction ineligible for desktop totals. The account’s default and the other transactions remain as entered.
+
+
+Accounts are optional for local transaction totals. Save and reuse the same bank account or card when you want to track where a transaction was posted. Under **Settings → Accounts & currencies**, you can edit an account’s default spending currency for future transactions. The account ID and balance currency are preserved. Existing transactions retain their assigned currency.
+
+Desktop v1 requires an account and a matching currency. An account-free transaction can appear in local totals and its backup while being withheld by the desktop importer. The same rule applies when an account’s spending currency differs from its balance currency.

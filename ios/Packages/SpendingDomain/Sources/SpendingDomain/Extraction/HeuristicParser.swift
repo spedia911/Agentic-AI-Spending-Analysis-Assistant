@@ -34,7 +34,7 @@ public struct ScreenshotParseOptions: Sendable {
 
 /// Uses OCR geometry for mobile transaction lists, with an inline-text fallback.
 public enum HeuristicScreenshotParser {
-    private static let money = #"[-+]?\s*[$€£]\s*[-+]?\s*(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}(?:\s*CR)?"#
+    private static let money = #"[-+−]?\s*(?:(?:US|CA|AU|HK)?[$€£₩₹]|\b(?:USD|KRW|EUR|GBP|CAD|AUD|JPY|HKD|INR)\b)\s*[-+−]?\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?(?:\s*CR)?|[-+−]?\d+(?:,\d{3})*(?:\.\d{2})?\s*원"#
     private static let bareMoney = #"^\s*[-+]?\(?\d+(?:,\d{3})*\.\d{2}\)?(?:\s*CR)?\s*$"#
     private static let datePattern = #"\b(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}/\d{1,2}(?:/\d{2,4})?|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:,?\s+20\d{2})?)\b"#
 
@@ -90,10 +90,11 @@ public enum HeuristicScreenshotParser {
 
         for (i, amountLine) in spatial.enumerated() {
             let box = amountLine.boundingBox!
+            let billedText = CurrencyEvidence.billedAmountText(in: amountLine.text)
             guard box.y > max(floor, 0.065),
-                  let amount = match(money, amountLine.text) ?? (box.x > 0.55 ? match(bareMoney, amountLine.text) : nil),
+                  let amount = match(money, billedText) ?? (box.x > 0.55 ? match(bareMoney, billedText) : nil),
                   !isSummary(amountLine.text) else { continue }
-            let inlineMerchant = strip(amountLine.text, removing: [amount, match(datePattern, amountLine.text) ?? ""])
+            let inlineMerchant = merchantText(amountLine.text, amount: amount, date: match(datePattern, amountLine.text))
             let sameLineMerchant = isMerchant(inlineMerchant) ? inlineMerchant : nil
             let merchantIndex = spatial.indices.filter { j in
                 let b = spatial[j].boundingBox!
@@ -143,8 +144,9 @@ public enum HeuristicScreenshotParser {
                 }
                 guard let date = match(datePattern, text), !isSummary(text) else { continue }
                 let withoutDate = text.replacingOccurrences(of: date, with: "")
-                guard let amount = match(money, withoutDate) ?? match(#"[-+]?\d+(?:,\d{3})*\.\d{2}(?:\s*CR)?\s*$"#, withoutDate) else { continue }
-                let merchant = strip(withoutDate, removing: [amount])
+                let billedText = CurrencyEvidence.billedAmountText(in: withoutDate)
+                guard let amount = match(money, billedText) ?? match(#"[-+]?\d+(?:,\d{3})*\.\d{2}(?:\s*CR)?\s*$"#, billedText) else { continue }
+                let merchant = merchantText(withoutDate, amount: amount, date: nil)
                 guard isMerchant(merchant) else { continue }
                 transactions.append(ExtractedTransactionCandidate(rowIndex: transactions.count,
                     dateText: Normalizer.normalizeDateText(date, observedMonthHint: month) ?? date,
@@ -224,6 +226,13 @@ public enum HeuristicScreenshotParser {
         guard let range = text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else { return nil }
         return String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
+    private static func merchantText(_ text: String, amount: String, date: String?) -> String {
+        let label = [CurrencyEvidence.billingAmountLabel(in: text), CurrencyEvidence.originalAmountLabel(in: text)]
+            .compactMap { $0 }.min { $0.lowerBound < $1.lowerBound }
+        let merchant = label.map { String(text[..<$0.lowerBound]) } ?? text
+        return strip(merchant, removing: [amount, date ?? ""])
+    }
+
     private static func strip(_ text: String, removing parts: [String]) -> String {
         parts.filter { !$0.isEmpty }.reduce(text) { $0.replacingOccurrences(of: $1, with: "") }
             .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))

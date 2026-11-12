@@ -98,8 +98,10 @@ Same strategy as 001-mvp: SHA-256 truncated hash of `sourceDocumentId|rowIndex|d
 
 - No secrets in repo.
 - Mask long numbers, emails, and secret-like tokens in logs.
-- Configurable source image retention days; cleanup on launch and settings change. Explicit stored-image deletion preserves local rows, OCR geometry, and deduplication identity; it does not alter the system Photos library.
+- Configurable source file retention. Cleanup runs on app activation or explicit request. Explicit stored-image deletion preserves local rows, OCR geometry, and deduplication identity; it does not alter the system Photos library.
 - App Group only for Share Extension inbox handoff.
+- Automatic privacy cover when the app is inactive. Optional Face ID / device passcode lock (disabled by default) requires authentication on launch and return from background; cancellation leaves content covered; import/export processing stays paused until unlocked.
+- Temporary export files use complete file protection, unique names, and cleanup after share/cancel and on launch. Shared files contain sensitive records and OCR evidence.
 
 ## Relationship to v1
 
@@ -113,6 +115,12 @@ Optional Foundation Models calls use availability checks on iOS 26+, operate loc
 
 ## Dashboard time series and shared editors
 
-Home uses the selected month as the end of recorded history. The spending view applies the category filter to both its totals and its drill-down rows. Cash flow remains across accounts; it comes from the same persisted monthly summaries that are rebuilt after import, correction, or deletion. Linear fits use the actual distance between recorded months. Year-over-year comparisons require the matching prior-year month. Asset projections use reviewed or unflagged checking/savings snapshots grouped by account and type, with the latest observed balance per month.
+Home uses the selected month as the end of recorded history and a currency picker so USD/KRW totals never combine. The spending view applies the category filter to both its totals and its drill-down rows. Cash flow is portfolio-wide within the selected currency; it comes from the same persisted monthly summaries that are rebuilt after import, correction, or deletion. Linear fits use the actual distance between recorded months. Year-over-year comparisons require the matching prior-year month. Asset trends group by account ID, balance type, and currency; related spending attributes only through matching account IDs. Month-over-month prior balances require an immediately preceding month observation; otherwise Home shows previous-observation date and change. Carried-forward balances keep their original dates and are not treated as fresh observations. Linear projections are labelled historical extrapolations without investment-return claims.
 
-Review, Transactions, and Sources open the same transaction editor. A category change and any field corrections commit together; saving asks whether to add a merchant rule. Open issues stay separate from resolved issue history. Source and balance swipe actions open their respective editors, and destructive actions identify which underlying record will be removed.
+Review, Transactions, and Sources open the same transaction editor with account/currency selection. A category change and any field corrections commit together; saving asks whether to add a merchant rule. Open issues stay separate from resolved issue history. Source and balance swipe actions open their respective editors, and destructive actions identify which underlying record will be removed.
+
+## Export, restore, and eligibility
+
+`Eligibility` centralizes local vs desktop rules. Usable unresolved transactions may remain provisional locally; desktop-eligible rows require resolved mandatory issues. Invalid, unmapped, non-finite, conflicting, or pending balances are withheld from valuations and desktop export with reasons preserved. Spending semantics (`SpendingClassification` / `SpendingMath`) define gross spending, refunds, net spending, income, internal transfers, and card settlements in one contract—rent/utilities stay spending; recognized card settlements do not.
+
+Portable backups are versioned envelopes (`PortableBackup`) with dataset/snapshot IDs, completeness, counts, and integrity hashes. Records and OCR evidence export by default; originals are optional and marked included/omitted/expired/missing/unavailable. Imports, edits, and exports share one coordinator lock so a snapshot is consistent. Restore validates the package, stages attachments, commits atomically, and uses a recovery journal if interrupted; failure preserves the prior dataset. Derived summaries are rebuilt after restore. Legacy unversioned JSON can restore with account/currency mapping required afterward; extraction JSON import remains a separate Import path.

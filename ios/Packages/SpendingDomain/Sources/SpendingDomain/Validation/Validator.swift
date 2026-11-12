@@ -106,7 +106,8 @@ public enum Validator {
         func key(_ value: String) -> String {
             String(value.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
         }
-        guard !key(left.merchantNormalized).isEmpty,
+        guard left.billedCurrencyCode == right.billedCurrencyCode, left.accountId == right.accountId,
+              !key(left.merchantNormalized).isEmpty,
               key(left.merchantNormalized) == key(right.merchantNormalized),
               abs(left.amount - right.amount) < 0.01,
               let a = parseDate(left.transactionDate), let b = parseDate(right.transactionDate) else { return false }

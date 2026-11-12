@@ -11,10 +11,35 @@ final class ImportIntegrationTests: XCTestCase {
     }) throws -> (ModelContainer, LocalStore, ImportPipelineService, URL) {
         let container = try ModelContainer(for: SpendingPersistence.schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let store = LocalStore(modelContext: container.mainContext)
+        store.readDefaultCurrency = { nil }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let service = ImportPipelineService(store: store, files: SourceFileStore(directory: root), enableFoundationModels: { false }, recognize: recognize)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         return (container, store, service, root)
+    }
+
+    private func mapAll(_ store: LocalStore) throws {
+        if try store.allAccounts().isEmpty { try store.saveAccount(label: "Synthetic test account", currency: "USD") }
+        let id = try XCTUnwrap(store.allAccounts().first?.id)
+        try store.mapRecords(transactions: Set(store.allTransactions().map(\.id)), assets: Set(store.allAssets().map(\.id)), accountId: id)
+    }
+
+    func testRetentionRemovesOnlyExpiredStoredCopies() async throws {
+        let (container, store, service, _) = try setup()
+        _ = container
+        let first = await service.importImage(data: Data([11, 19]), fileName: "Old.png", mimeType: "image/png", sourceType: .files)
+        let second = await service.importImage(data: Data([12, 20]), fileName: "Recent.png", mimeType: "image/png", sourceType: .files)
+        let oldPath = try XCTUnwrap(first.source?.localRelativePath)
+        let recentPath = try XCTUnwrap(second.source?.localRelativePath)
+        let oldURL = try service.files.url(oldPath)
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-31 * 86_400)], ofItemAtPath: oldURL.path)
+        let transactions = try store.allTransactions().map(\.id).sorted()
+        XCTAssertEqual(try service.cleanupSources(retentionDays: 0), 0)
+        XCTAssertEqual(try service.cleanupSources(retentionDays: 30), 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: oldURL.path))
+        XCTAssertEqual(try service.files.read(recentPath), Data([12, 20]))
+        XCTAssertEqual(try store.allTransactions().map(\.id).sorted(), transactions)
+        XCTAssertNotNil(try store.source(id: XCTUnwrap(first.source?.id))?.ocrLinesJSON)
     }
 
     func testDeleteTransactionsAndRollback() async throws {
@@ -84,6 +109,7 @@ final class ImportIntegrationTests: XCTestCase {
         }; _ = container
         let outcome = await service.importImage(data: Data([7, 1]), fileName: "test.png", mimeType: "image/png", sourceType: .files)
         XCTAssertEqual(outcome.status, .imported)
+        try mapAll(store)
         let original = try XCTUnwrap(store.allTransactions().first)
         let advisory = try XCTUnwrap(store.allReviews().first(where: \.isAdvisory))
         XCTAssertEqual(original.validationStatus, .valid)
@@ -211,6 +237,7 @@ final class ImportIntegrationTests: XCTestCase {
         XCTAssertEqual(completed.status, .imported, completed.error ?? "")
         XCTAssertEqual(try store.allTransactions().map(\.transactionDate).sorted(), ["2026-09-30", "2026-10-02"])
         XCTAssertTrue(try store.allTransactions().allSatisfy { $0.accountLabel == "Sample Checking" })
+        try mapAll(store)
         XCTAssertEqual(try store.allCashFlows().count, 2)
         let repeatImport = await service.importImage(data: bytes, fileName: "copy.png", mimeType: "image/png", sourceType: .files, requestDetails: true)
         XCTAssertEqual(repeatImport.status, .alreadyImported)
@@ -235,6 +262,7 @@ final class ImportIntegrationTests: XCTestCase {
         XCTAssertTrue(rows.allSatisfy { $0.accountLabel == "Renamed Checking" })
         XCTAssertNil(try store.source(id: source.id)?.errorSummary)
         XCTAssertFalse(try store.allReviews().contains { $0.fieldName == "transaction_date" && $0.status == .pending })
+        try mapAll(store)
         XCTAssertEqual(Set(try store.allCashFlows().map(\.month)), ["2024-09", "2024-10", "2025-10"])
     }
 
@@ -330,6 +358,7 @@ final class ImportIntegrationTests: XCTestCase {
         XCTAssertTrue(try store.allCorrections().isEmpty)
         try store.removeConfirmedDuplicates(keeping: "original", removing: "overlap", matches: matches)
         XCTAssertEqual(Set(try store.allTransactions().map(\.id)), ["keep", "unique"])
+        try mapAll(store)
         XCTAssertEqual(try store.allCashFlows().first?.spendingTotal, 60)
         XCTAssertEqual(try store.allCorrections().first { $0.fieldName == "duplicate_removed" }?.newValue, "keep")
         XCTAssertThrowsError(try store.removeConfirmedDuplicates(keeping: "original", removing: "overlap", matches: matches))
@@ -645,6 +674,7 @@ extension ImportIntegrationTests {
             type: .expense, account: "Card 123456789"), category: .shopping)
         let original = try XCTUnwrap(store.allTransactions().first)
         XCTAssertEqual(try store.allSources()[0].sourceType, .manual)
+        try mapAll(store)
         XCTAssertEqual(try store.allCashFlows()[0].spendingTotal, 25)
         XCTAssertFalse(original.accountLabel.contains("123456789"))
         try service.editTransaction(id: original.transactionId,
@@ -654,6 +684,7 @@ extension ImportIntegrationTests {
         XCTAssertEqual(updated.transactionId, original.transactionId)
         XCTAssertEqual(updated.evidenceText, original.evidenceText)
         XCTAssertEqual(updated.category, .dining)
+        try mapAll(store)
         XCTAssertEqual(try store.allCashFlows()[0].spendingTotal, 35)
         XCTAssertFalse(try store.allCorrections().isEmpty)
         XCTAssertThrowsError(try service.addManualTransaction(TransactionEdit(date: "bad", merchant: "", amount: 0,

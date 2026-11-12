@@ -179,6 +179,8 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
     public var observedMonthHint: String?
     public var ocrLinesJSON: String?
     public var imageDeletedAt: Date?
+    public var originalFileStatus: String?
+    public var importAccountId: String?
 
     public init(
         sourceDocumentId: String,
@@ -198,7 +200,8 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
         screenshotLayout: String? = nil,
         observedMonthHint: String? = nil,
         ocrLinesJSON: String? = nil,
-        imageDeletedAt: Date? = nil
+        imageDeletedAt: Date? = nil,
+        originalFileStatus: String? = nil
     ) {
         self.sourceDocumentId = sourceDocumentId
         self.sourceType = sourceType
@@ -218,6 +221,7 @@ public struct SourceDocumentRecord: Codable, Sendable, Equatable, Identifiable {
         self.observedMonthHint = observedMonthHint
         self.ocrLinesJSON = ocrLinesJSON
         self.imageDeletedAt = imageDeletedAt
+        self.originalFileStatus = originalFileStatus
     }
 }
 
@@ -237,7 +241,24 @@ public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
     public var merchantNormalized: String
     public var amount: Double
     public var transactionType: TransactionType
+    public var accountId: String?
+    public var currencyCode: String?
+    public var confirmedBilledCurrency: String?
+    public var assumedCurrencyCode: String?
+    public var defaultBilledCurrency: String? { assumedCurrencyCode ?? currencyCode }
+    public var billedCurrencyCode: String? { confirmedBilledCurrency ?? defaultBilledCurrency }
+    public var currencyEvidence: CurrencyEvidence { CurrencyEvidence.read(evidenceText) }
+    public var hasCurrencyConflict: Bool {
+        confirmedBilledCurrency == nil && currencyEvidence.conflicts(with: defaultBilledCurrency)
+    }
     public var accountLabel: String
+    public mutating func assignAccount(_ account: AccountRecord?, defaultCurrency: String?) {
+        accountId = account?.id
+        currencyCode = account?.currencyCode
+        if let account { accountLabel = account.label }
+        let preference = account?.spendingCurrency ?? defaultCurrency
+        assumedCurrencyCode = Eligibility.validCurrency(preference) && preference != currencyCode ? preference : nil
+    }
     public var origin: TransactionOrigin?
     public var category: SpendingCategory
     public var categoryConfidence: Double
@@ -259,6 +280,8 @@ public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
         amount: Double,
         transactionType: TransactionType,
         accountLabel: String,
+        accountId: String? = nil,
+        currencyCode: String? = nil,
         origin: TransactionOrigin? = nil,
         category: SpendingCategory = .uncategorized,
         categoryConfidence: Double = 0,
@@ -278,6 +301,8 @@ public struct TransactionRecord: Codable, Sendable, Equatable, Identifiable {
         self.merchantNormalized = merchantNormalized
         self.amount = amount
         self.transactionType = transactionType
+        self.accountId = accountId
+        self.currencyCode = currencyCode
         self.accountLabel = accountLabel
         self.origin = origin
         self.category = category
@@ -298,6 +323,13 @@ public struct AssetSnapshotRecord: Codable, Sendable, Equatable, Identifiable {
     public var sourceDocumentId: String
     public var observedMonth: String
     public var observedDate: String
+    public var accountId: String?
+    public var currencyCode: String?
+    public var confirmedCurrencyCode: String?
+    public var currencyEvidence: CurrencyEvidence { CurrencyEvidence.read(evidenceText) }
+    public var hasCurrencyConflict: Bool {
+        (confirmedCurrencyCode == nil || confirmedCurrencyCode != currencyCode) && currencyEvidence.conflicts(with: currencyCode)
+    }
     public var accountLabel: String
     public var balance: Double
     public var balanceType: BalanceType
@@ -312,6 +344,8 @@ public struct AssetSnapshotRecord: Codable, Sendable, Equatable, Identifiable {
         observedMonth: String,
         observedDate: String,
         accountLabel: String,
+        accountId: String? = nil,
+        currencyCode: String? = nil,
         balance: Double,
         balanceType: BalanceType,
         confidence: Double,
@@ -323,6 +357,8 @@ public struct AssetSnapshotRecord: Codable, Sendable, Equatable, Identifiable {
         self.sourceDocumentId = sourceDocumentId
         self.observedMonth = observedMonth
         self.observedDate = observedDate
+        self.accountId = accountId
+        self.currencyCode = currencyCode
         self.accountLabel = accountLabel
         self.balance = balance
         self.balanceType = balanceType
@@ -412,6 +448,7 @@ public struct CorrectionRecord: Codable, Sendable, Equatable, Identifiable {
 }
 
 public struct MonthlySummaryRecord: Codable, Sendable, Equatable {
+    public var currencyCode: String?
     public var month: String
     public var category: String
     public var totalAmount: Double
@@ -421,7 +458,8 @@ public struct MonthlySummaryRecord: Codable, Sendable, Equatable {
     public var monthOverMonthDelta: Double?
     public var completenessStatus: CompletenessStatus
 
-    public init(month: String, category: String, totalAmount: Double, transactionCount: Int, reviewedCount: Int, unresolvedCount: Int, monthOverMonthDelta: Double?, completenessStatus: CompletenessStatus) {
+    public init(month: String, category: String, totalAmount: Double, transactionCount: Int, reviewedCount: Int, unresolvedCount: Int, monthOverMonthDelta: Double?, completenessStatus: CompletenessStatus, currencyCode: String? = nil) {
+        self.currencyCode = currencyCode
         self.month = month; self.category = category; self.totalAmount = totalAmount
         self.transactionCount = transactionCount; self.reviewedCount = reviewedCount
         self.unresolvedCount = unresolvedCount; self.monthOverMonthDelta = monthOverMonthDelta
@@ -430,6 +468,7 @@ public struct MonthlySummaryRecord: Codable, Sendable, Equatable {
 }
 
 public struct QuarterlySummaryRecord: Codable, Sendable, Equatable {
+    public var currencyCode: String?
     public var quarter: String
     public var category: String
     public var totalAmount: Double
@@ -437,7 +476,8 @@ public struct QuarterlySummaryRecord: Codable, Sendable, Equatable {
     public var quarterOverQuarterDelta: Double?
     public var completenessStatus: CompletenessStatus
 
-    public init(quarter: String, category: String, totalAmount: Double, transactionCount: Int, quarterOverQuarterDelta: Double?, completenessStatus: CompletenessStatus) {
+    public init(quarter: String, category: String, totalAmount: Double, transactionCount: Int, quarterOverQuarterDelta: Double?, completenessStatus: CompletenessStatus, currencyCode: String? = nil) {
+        self.currencyCode = currencyCode
         self.quarter = quarter; self.category = category; self.totalAmount = totalAmount
         self.transactionCount = transactionCount; self.quarterOverQuarterDelta = quarterOverQuarterDelta
         self.completenessStatus = completenessStatus
@@ -445,6 +485,7 @@ public struct QuarterlySummaryRecord: Codable, Sendable, Equatable {
 }
 
 public struct CashFlowSummaryRecord: Codable, Sendable, Equatable {
+    public var currencyCode: String?
     public var month: String
     public var spendingTotal: Double
     public var incomeTotal: Double
@@ -457,7 +498,8 @@ public struct CashFlowSummaryRecord: Codable, Sendable, Equatable {
     public var unresolvedCount: Int
     public var completenessStatus: CompletenessStatus
 
-    public init(month: String, spendingTotal: Double, incomeTotal: Double, refundTotal: Double, transferTotal: Double, paymentTotal: Double, feeTotal: Double, netCashFlow: Double, transactionCount: Int, unresolvedCount: Int, completenessStatus: CompletenessStatus) {
+    public init(month: String, spendingTotal: Double, incomeTotal: Double, refundTotal: Double, transferTotal: Double, paymentTotal: Double, feeTotal: Double, netCashFlow: Double, transactionCount: Int, unresolvedCount: Int, completenessStatus: CompletenessStatus, currencyCode: String? = nil) {
+        self.currencyCode = currencyCode
         self.month = month; self.spendingTotal = spendingTotal; self.incomeTotal = incomeTotal
         self.refundTotal = refundTotal; self.transferTotal = transferTotal; self.paymentTotal = paymentTotal
         self.feeTotal = feeTotal; self.netCashFlow = netCashFlow; self.transactionCount = transactionCount
@@ -466,15 +508,20 @@ public struct CashFlowSummaryRecord: Codable, Sendable, Equatable {
 }
 
 public struct AssetTrendRecord: Codable, Sendable, Equatable {
+    public var currencyCode: String?
+    public var accountId: String?
+    public var previousObservationDate: String?
+    public var previousObservationChange: Double?
     public var month: String
     public var accountLabel: String
     public var endingBalance: Double
     public var priorMonthBalance: Double?
-    public var monthlyChange: Double
-    public var relatedSpendingTotal: Double
+    public var monthlyChange: Double?
+    public var relatedSpendingTotal: Double?
     public var maintainabilityFlag: MaintainabilityFlag
 
-    public init(month: String, accountLabel: String, endingBalance: Double, priorMonthBalance: Double?, monthlyChange: Double, relatedSpendingTotal: Double, maintainabilityFlag: MaintainabilityFlag) {
+    public init(month: String, accountLabel: String, endingBalance: Double, priorMonthBalance: Double?, monthlyChange: Double?, relatedSpendingTotal: Double?, maintainabilityFlag: MaintainabilityFlag, currencyCode: String? = nil) {
+        self.currencyCode = currencyCode
         self.month = month; self.accountLabel = accountLabel; self.endingBalance = endingBalance
         self.priorMonthBalance = priorMonthBalance; self.monthlyChange = monthlyChange
         self.relatedSpendingTotal = relatedSpendingTotal; self.maintainabilityFlag = maintainabilityFlag

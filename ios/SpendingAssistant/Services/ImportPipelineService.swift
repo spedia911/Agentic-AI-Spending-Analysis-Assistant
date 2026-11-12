@@ -42,6 +42,8 @@ enum ImportFailure: Error, LocalizedError {
 /// One shared service serializes imports across await points, including concurrent entry points.
 @MainActor
 final class ImportPipelineService {
+    var processingAllowed = true
+    private func requireUnlocked() throws { guard processingAllowed else { throw BackupError.invalid("Unlock the app to continue processing.") } }
     let store: LocalStore
     let files: SourceFileStore
     private let recognize: (Data) async throws -> [OCRLine]
@@ -64,16 +66,17 @@ final class ImportPipelineService {
         if waiters.isEmpty { locked = false } else { waiters.removeFirst().resume() }
     }
 
-    func importImage(data: Data, fileName: String, mimeType: String, sourceType: SourceType, options: ScreenshotParseOptions = ScreenshotParseOptions(), requestDetails: Bool = false) async -> ImportOutcome {
+    func importImage(data: Data, fileName: String, mimeType: String, sourceType: SourceType, options: ScreenshotParseOptions = ScreenshotParseOptions(), requestDetails: Bool = false, accountId: String? = nil) async -> ImportOutcome {
         await acquire(); defer { release() }
-        return await importImageUnlocked(data: data, fileName: fileName, mimeType: mimeType, sourceType: sourceType, options: options, requestDetails: requestDetails)
+        return await importImageUnlocked(data: data, fileName: fileName, mimeType: mimeType, sourceType: sourceType, options: options, requestDetails: requestDetails, accountId: accountId)
     }
 
     private func importImageUnlocked(data: Data, fileName: String, mimeType: String, sourceType: SourceType,
-                                     retrySource: SourceDocumentRecord? = nil, options: ScreenshotParseOptions = ScreenshotParseOptions(), requestDetails: Bool = false) async -> ImportOutcome {
+                                     retrySource: SourceDocumentRecord? = nil, options: ScreenshotParseOptions = ScreenshotParseOptions(), requestDetails: Bool = false, accountId: String? = nil) async -> ImportOutcome {
         var source: SourceDocumentRecord?
         var newPath: String?
         do {
+            try requireUnlocked()
             guard !data.isEmpty else { throw ImportFailure.emptyImage }
             let isPDF = mimeType == "application/pdf"
             if !isPDF, let month = options.observedMonthHint, !month.isEmpty, !Normalizer.isValidStatementDateHint(month) { throw ImportFailure.invalidMonth }
@@ -85,8 +88,12 @@ final class ImportPipelineService {
             }
             var record = existing ?? SourceDocumentRecord(sourceDocumentId: "src_" + UUID().uuidString,
                 sourceType: sourceType, fileName: fileName, mimeType: mimeType, contentFingerprint: fingerprint)
+            if existing == nil, let account = try store.account(id: accountId) {
+                record.importAccountId = account.id
+                record.cardName = account.label
+            }
             if existing == nil && !isPDF {
-                record.cardName = options.cardName.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : PrivacyRedactor.maskAccountLabel($0) }
+                record.cardName = record.cardName ?? options.cardName.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : PrivacyRedactor.maskAccountLabel($0) }
                 record.screenshotLayout = options.layout.rawValue
                 record.observedMonthHint = options.observedMonthHint
             }
@@ -95,6 +102,7 @@ final class ImportPipelineService {
             if record.localRelativePath == nil || (try? files.read(record.localRelativePath!)) == nil {
                 record.localRelativePath = try files.save(data: data, sourceId: record.sourceDocumentId, fileName: fileName)
                 record.imageDeletedAt = nil
+                record.originalFileStatus = nil
                 newPath = record.localRelativePath
             }
             record.contentFingerprint = fingerprint
@@ -102,6 +110,7 @@ final class ImportPipelineService {
             try store.commit { try store.upsert(source: record) }
             newPath = nil
             source = record
+            try requireUnlocked()
             let lines = try await isPDF ? StatementPDFReader.read(data) : recognize(data)
             record.ocrLinesJSON = String(decoding: try JSONEncoder().encode(lines), as: UTF8.self)
             record.rawText = lines.map(\.text).joined(separator: "\n")
@@ -113,7 +122,7 @@ final class ImportPipelineService {
             }
             source = record
             var extraction = try parseDocument(record, lines: lines)
-            if isPDF { record.cardName = extraction.transactions.first?.accountSourceText }
+            if isPDF, record.importAccountId == nil { record.cardName = extraction.transactions.first?.accountSourceText }
             if !isPDF && extraction.transactions.isEmpty && extraction.assetSnapshots.isEmpty {
                 // Optional enhancement failures must not discard the OCR evidence or fallback path.
                 if let structured = try? await OnDeviceAIFactory.makeStructurer(enabled: enableFoundationModels()).structure(
@@ -137,6 +146,7 @@ final class ImportPipelineService {
     private func importJSONUnlocked(text: String, fileName: String, sourceId: String?, sourceType: SourceType) async -> ImportOutcome {
         var source: SourceDocumentRecord?
         do {
+            try requireUnlocked()
             try backfillFingerprints()
             if let sourceId {
                 guard let existing = try store.source(id: sourceId) else { throw ImportFailure.unavailableSource }
@@ -183,6 +193,7 @@ final class ImportPipelineService {
     func retry(sourceId: String, requestDetails: Bool = false, fallbackDate: String? = nil) async -> ImportOutcome {
         await acquire(); defer { release() }
         do {
+            try requireUnlocked()
             guard let source = try store.source(id: sourceId) else { throw ImportFailure.unavailableSource }
             if source.status == .processed { return ImportOutcome(fileName: source.fileName, status: .alreadyImported, source: source) }
             if let json = source.importedJSON ?? (source.mimeType == "application/json" ? source.rawText : nil) {
@@ -246,24 +257,25 @@ final class ImportPipelineService {
         let dates = extraction.transactions.map(\.dateText)
         let needsYear = dates.contains(where: isYearlessDate)
         let needsDate = dates.contains { !Validator.isValidDate($0 ?? "") && !isYearlessDate($0) }
-        let needsAccount = PrivacyRedactor.maskAccountLabel(source.cardName) == "Unknown account" && extraction.transactions.contains {
+        let needsAccount = store.defaultCurrency == nil && PrivacyRedactor.maskAccountLabel(source.cardName) == "Unknown account" && extraction.transactions.contains {
             PrivacyRedactor.maskAccountLabel($0.accountSourceText) == "Unknown account"
         }
         guard needsYear || needsDate || needsAccount else { return nil }
         return ScreenshotImportDetails(source: source, needsYear: needsYear, needsDate: needsDate, needsAccount: needsAccount)
     }
 
-    func applySharedScreenshotDetails(period: String?, account: String?, to request: ScreenshotImportDetails) async -> ImportOutcome {
+    func applySharedScreenshotDetails(period: String?, account: String?, accountId: String? = nil, to request: ScreenshotImportDetails) async -> ImportOutcome {
         do {
             guard let current = try detailsForSource(id: request.id) else { return await retry(sourceId: request.id, requestDetails: true) }
             let usePeriod = current.needsYear ? period : nil
             let useAccount = current.needsAccount ? account : nil
-            guard usePeriod != nil || useAccount != nil else {
+            let useAccountId = current.needsAccount ? accountId : nil
+            guard usePeriod != nil || useAccount != nil || useAccountId != nil else {
                 return ImportOutcome(fileName: current.source.fileName, status: .needsDetails, source: current.source, details: current)
             }
             try updateSourceOptions(id: current.id, cardName: useAccount ?? current.source.cardName ?? "",
                 layout: ScreenshotLayout(rawValue: current.source.screenshotLayout ?? "") ?? .automatic,
-                month: usePeriod ?? current.source.observedMonthHint ?? "")
+                month: usePeriod ?? current.source.observedMonthHint ?? "", accountId: useAccountId)
             return await retry(sourceId: request.id, requestDetails: true)
         } catch { return .failure(request.source.fileName, error, source: request.source) }
     }
@@ -304,7 +316,7 @@ final class ImportPipelineService {
     }
 
     private func recordFailure(_ error: Error, name: String, source: SourceDocumentRecord?) -> ImportOutcome {
-        guard var record = source else { return .failure(name, error) }
+        guard processingAllowed, var record = source else { return .failure(name, error) }
         record.status = .error; record.errorSummary = PrivacyRedactor.safeErrorDetail(error)
         do {
             try store.commit {
@@ -320,6 +332,7 @@ final class ImportPipelineService {
     }
 
     private func persist(extraction: ScreenshotExtractionResult, source: inout SourceDocumentRecord) async throws {
+        try requireUnlocked()
         var extraction = extraction
         if let card = source.cardName, !card.isEmpty {
             for i in extraction.transactions.indices { extraction.transactions[i].accountSourceText = card }
@@ -328,19 +341,26 @@ final class ImportPipelineService {
             if source.rawText == nil { source.rawText = extraction.rawText }
             throw ExtractionError.emptyResult
         }
+        let selectedAccount = try store.account(id: source.importAccountId)
         let output = await ProcessingPipeline.process(PipelineInput(sourceDocumentId: source.sourceDocumentId,
             fileName: source.fileName, extraction: extraction, existingTransactions: try store.allTransactions(),
             corrections: try store.allCorrections(), existingAssets: try store.allAssets(),
             observedMonthHint: source.observedMonthHint ?? HeuristicScreenshotParser.statementMonth(source.rawText ?? ""),
-            origin: origin(for: source, kind: extraction.screenshotKind)),
+            origin: origin(for: source, kind: extraction.screenshotKind), account: selectedAccount, defaultCurrency: store.defaultCurrency),
             classifier: OnDeviceAIFactory.makeClassifier(enabled: enableFoundationModels()))
         source.status = .processed; source.processedAt = Date(); source.modifiedTime = Date()
         if source.rawText == nil || source.rawText?.isEmpty == true { source.rawText = extraction.rawText }
         source.errorSummary = output.warnings.isEmpty ? nil : PrivacyRedactor.maskSensitiveText(output.warnings.joined(separator: "; "))
         let record = source
+        try requireUnlocked()
         try store.commit(rebuild: true) {
-            for tx in output.transactions { try store.upsert(transaction: tx) }
-            for asset in output.assetSnapshots { try store.upsert(asset: asset) }
+            for tx in output.transactions {
+                try store.upsert(transaction: tx)
+            }
+            for var asset in output.assetSnapshots {
+                if let account = selectedAccount { asset.accountId = account.id; asset.currencyCode = account.currencyCode; asset.accountLabel = account.label }
+                try store.upsert(asset: asset)
+            }
             for review in output.reviewItems { try store.upsert(review: review) }
             for var review in try store.allReviews() where review.targetType == .sourceDocument && review.targetId == record.sourceDocumentId && review.status == .pending {
                 review.status = .resolved; review.resolvedAt = Date(); review.userAnswer = "Import completed"
@@ -386,6 +406,9 @@ final class ImportPipelineService {
     func seedDemo() throws {
         let seed = DemoSeed.make()
         try store.commit(rebuild: true) {
+            if try store.account(id: "00000000-0000-0000-0000-000000000001") == nil {
+                store.modelContext.insert(SDAccount(id: "00000000-0000-0000-0000-000000000001", label: "Demo account", currencyCode: "USD"))
+            }
             for source in seed.sources where try store.source(id: source.sourceDocumentId) == nil { try store.upsert(source: source) }
             let ids = Set(try store.allTransactions().map(\.transactionId))
             let assetIds = Set(try store.allAssets().map(\.assetSnapshotId))
@@ -407,24 +430,24 @@ final class ImportPipelineService {
 }
 
 extension ImportPipelineService {
-    func completeScreenshotDetails(id: String, account: String, month: String, fallbackDate: String?) async -> ImportOutcome {
+    func completeScreenshotDetails(id: String, account: String, month: String, fallbackDate: String?, accountId: String? = nil) async -> ImportOutcome {
         do {
             guard let request = try detailsForSource(id: id) else {
                 return await retry(sourceId: id, requestDetails: true)
             }
             let month = month.trimmingCharacters(in: .whitespacesAndNewlines)
-            let account = account.trimmingCharacters(in: .whitespacesAndNewlines)
+            let account = try store.account(id: accountId)?.label ?? account.trimmingCharacters(in: .whitespacesAndNewlines)
             if request.needsYear && month.isEmpty { throw ImportFailure.invalidMonth }
             if request.needsAccount && PrivacyRedactor.maskAccountLabel(account) == "Unknown account" {
                 throw ImportFailure.missingAccount
             }
             if let fallbackDate, !Validator.isValidDate(fallbackDate) { throw ReviewError.invalidFields }
-            try updateSourceOptions(id: id, cardName: account, layout: ScreenshotLayout(rawValue: request.source.screenshotLayout ?? "") ?? .automatic, month: month)
+            try updateSourceOptions(id: id, cardName: account, layout: ScreenshotLayout(rawValue: request.source.screenshotLayout ?? "") ?? .automatic, month: month, accountId: accountId)
             return await retry(sourceId: id, fallbackDate: fallbackDate)
         } catch { return .failure("Screenshot details", error) }
     }
 
-    func applySourceBatch(ids: Set<String>, period: String?, account: String?) async throws -> [ImportOutcome] {
+    func applySourceBatch(ids: Set<String>, period: String?, account: String?, accountId: String? = nil) async throws -> [ImportOutcome] {
         let sources = try ids.sorted().map { id in
             guard let source = try store.source(id: id),
                   source.mimeType.hasPrefix("image/") || (source.mimeType == "application/pdf" && period == nil) else {
@@ -436,7 +459,7 @@ extension ImportPipelineService {
             for source in sources {
                 try updateSourceOptions(id: source.sourceDocumentId, cardName: account ?? source.cardName ?? "",
                     layout: ScreenshotLayout(rawValue: source.screenshotLayout ?? "") ?? .automatic,
-                    month: period ?? source.observedMonthHint ?? "", staged: true)
+                    month: period ?? source.observedMonthHint ?? "", staged: true, accountId: accountId)
             }
         }
         var outcomes: [ImportOutcome] = []
@@ -446,13 +469,16 @@ extension ImportPipelineService {
         return outcomes
     }
 
-    func updateSourceOptions(id: String, cardName: String, layout: ScreenshotLayout, month: String, staged: Bool = false) throws {
+    func updateSourceOptions(id: String, cardName: String, layout: ScreenshotLayout, month: String, staged: Bool = false, accountId: String? = nil, applyAccountToRows: Bool = true) throws {
         guard var source = try store.source(id: id) else { throw ImportFailure.unavailableSource }
         let cleanMonth = month.trimmingCharacters(in: .whitespacesAndNewlines)
         guard cleanMonth.isEmpty || Normalizer.isValidStatementDateHint(cleanMonth) else { throw ImportFailure.invalidMonth }
         let oldMonth = source.observedMonthHint
         let oldAccount = source.cardName
-        let masked = PrivacyRedactor.maskAccountLabel(cardName)
+        let selectedAccount = try store.account(id: accountId ?? source.importAccountId)
+        if let accountId, !accountId.isEmpty, selectedAccount == nil { throw ReviewError.invalidFields }
+        if accountId != nil { source.importAccountId = selectedAccount?.id }
+        let masked = selectedAccount?.label ?? PrivacyRedactor.maskAccountLabel(cardName)
         source.cardName = masked == "Unknown account" ? nil : masked
         source.screenshotLayout = layout.rawValue
         source.observedMonthHint = cleanMonth.isEmpty ? nil : cleanMonth
@@ -476,7 +502,13 @@ extension ImportPipelineService {
             }
         }
         for var tx in sourceRows {
-            if oldAccount != source.cardName, tx.accountLabel != masked {
+            if applyAccountToRows, accountId != nil, tx.accountId != selectedAccount?.id {
+                corrections.append(CorrectionRecord(correctionId: UUID().uuidString, targetType: .transaction,
+                    targetId: tx.id, fieldName: "account_id", oldValue: tx.accountId ?? "",
+                    newValue: selectedAccount?.id ?? "", applyFuture: false))
+                tx.assignAccount(selectedAccount, defaultCurrency: store.defaultCurrency)
+                tx.accountLabel = masked
+            } else if applyAccountToRows, oldAccount != source.cardName, tx.accountLabel != masked {
                 corrections.append(CorrectionRecord(correctionId: "corr_" + UUID().uuidString, targetType: .transaction,
                     targetId: tx.transactionId, fieldName: "account_label", oldValue: tx.accountLabel, newValue: masked, applyFuture: false))
                 tx.accountLabel = masked
@@ -531,9 +563,15 @@ extension ImportPipelineService {
             let remaining = warning.components(separatedBy: "; ").filter { !isScreenshotDateWarning($0) }
             source.errorSummary = remaining.isEmpty ? nil : remaining.joined(separator: "; ")
         }
-        let assets: [AssetSnapshotRecord] = oldAccount != source.cardName && (source.mimeType == "application/pdf" || source.mimeType.hasPrefix("image/"))
+        let assets: [AssetSnapshotRecord] = applyAccountToRows && (accountId != nil || oldAccount != source.cardName)
             ? try store.allAssets().filter { $0.sourceDocumentId == id }.map { before in
-                var asset = before; asset.accountLabel = masked; return asset
+                var asset = before
+                asset.accountLabel = masked
+                if accountId != nil {
+                    asset.accountId = selectedAccount?.id
+                    asset.currencyCode = selectedAccount?.currencyCode
+                }
+                return asset
             } : []
         _ = try commitCorrection(result, before: transactions, reviews: reviews, source: source, assets: assets, staged: staged)
     }
@@ -557,15 +595,16 @@ extension ImportPipelineService {
         try store.commit { try store.upsert(source: source) }
     }
 
-    func addManualAsset(accountLabel: String, observedDate: String, balance: Double, balanceType: BalanceType) throws {
-        let label = PrivacyRedactor.maskAccountLabel(accountLabel)
+    func addManualAsset(accountLabel: String, observedDate: String, balance: Double, balanceType: BalanceType, accountId: String? = nil) throws {
+        let account = try store.account(id: accountId)
+        let label = account?.label ?? PrivacyRedactor.maskAccountLabel(accountLabel)
         guard Validator.isValidDate(observedDate), balance.isFinite, balanceType.tracksAsAsset,
               !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               label.lowercased() != "unknown account" else {
             throw ReviewError.invalidFields
         }
         let sourceId = "manual_asset_" + UUID().uuidString
-        let asset = AssetSnapshotRecord(
+        var asset = AssetSnapshotRecord(
             assetSnapshotId: "asset_manual_" + UUID().uuidString,
             sourceDocumentId: sourceId,
             observedMonth: String(observedDate.prefix(7)),
@@ -576,6 +615,7 @@ extension ImportPipelineService {
             confidence: 1,
             evidenceText: "Manually entered balance."
         )
+        if let account { asset.accountId = account.id; asset.currencyCode = account.currencyCode; asset.accountLabel = account.label }
         try store.commit(rebuild: true) {
             try store.upsert(source: SourceDocumentRecord(
                 sourceDocumentId: sourceId,
@@ -590,7 +630,7 @@ extension ImportPipelineService {
         }
     }
 
-    func addManualTransaction(_ edit: TransactionEdit, category: SpendingCategory, sourceId: String? = nil) throws {
+    func addManualTransaction(_ edit: TransactionEdit, category: SpendingCategory, sourceId: String? = nil, accountId: String? = nil) throws {
         guard Validator.isValidDate(edit.date), edit.amount.isFinite, edit.amount != 0,
               !edit.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ReviewError.invalidFields }
         let id = sourceId ?? "manual_" + UUID().uuidString
@@ -608,6 +648,7 @@ extension ImportPipelineService {
             transactionType: normalized.type, accountLabel: PrivacyRedactor.maskAccountLabel(edit.account),
             category: normalized.category, categoryConfidence: normalized.category == .uncategorized ? 0 : 1, extractionConfidence: 1,
             validationStatus: .valid, reviewStatus: .resolved, evidenceText: "Manually entered by the user.")
+        tx.assignAccount(try store.account(id: accountId), defaultCurrency: store.defaultCurrency)
         let validated = Validator.validate([tx], existingTransactions: try store.allTransactions())
         var reviews = validated.reviewItems
         tx = validated.transactions[0]
@@ -632,14 +673,20 @@ extension ImportPipelineService {
 
 extension ImportPipelineService {
     @discardableResult
-    func editTransaction(id: String, fields: TransactionEdit, category: SpendingCategory?, rememberCategory: Bool = false, confirm: Bool = false, matchSourceAccount: Bool = false) throws -> Bool {
+    func editTransaction(id: String, fields: TransactionEdit, category: SpendingCategory?, rememberCategory: Bool = false, confirm: Bool = false, matchSourceAccount: Bool = false, accountId: String? = nil, billedCurrency: String? = nil) throws -> Bool {
         let target = ReviewItemRecord(reviewItemId: "manual_edit", targetType: .transaction, targetId: id,
             issueType: .unclearCategory, severity: .low, question: "Manual correction")
         let transactions = try store.allTransactions()
         let reviews = try store.allReviews()
         guard let current = transactions.first(where: { $0.transactionId == id }) else { throw ReviewError.missingTarget }
+        let selectedAccount = try store.account(id: accountId.flatMap { $0.isEmpty ? nil : $0 })
+        let accountLabel = selectedAccount?.label ?? PrivacyRedactor.maskAccountLabel(fields.account)
+        var fields = fields; fields.account = accountLabel
+        if let billedCurrency, !billedCurrency.isEmpty, !Eligibility.validCurrency(billedCurrency) { throw ReviewError.invalidFields }
+        let mappingChanged = accountId != nil && (current.accountId ?? "") != (accountId ?? "")
         let fieldsChanged = fields.date != current.transactionDate || fields.merchant != current.merchantNormalized
             || fields.amount != current.amount || fields.type != current.transactionType || fields.account != current.accountLabel
+            || mappingChanged
         var applied = fieldsChanged ? try CorrectionApplier.apply(review: target, action: .edit(fields),
             transactions: transactions, reviewItems: reviews)
             : CorrectionApplication(transactions: transactions, reviewItems: reviews, corrections: [])
@@ -654,23 +701,56 @@ extension ImportPipelineService {
                 applied.corrections += result.corrections
             }
         }
+        func applyAccountMapping(to indices: [Int]) {
+            guard accountId != nil else { return }
+            for i in indices {
+                let before = applied.transactions[i]
+                let newId = selectedAccount?.id
+                let newCurrency = selectedAccount?.currencyCode
+                let newLabel = selectedAccount?.label ?? before.accountLabel
+                guard before.accountId != newId || before.currencyCode != newCurrency || before.accountLabel != newLabel else { continue }
+                applied.corrections.append(CorrectionRecord(correctionId: "corr_" + UUID().uuidString, targetType: .transaction,
+                    targetId: before.transactionId, fieldName: "account_id", oldValue: before.accountId ?? "",
+                    newValue: newId ?? "", applyFuture: false, createdAt: Date()))
+                applied.transactions[i].assignAccount(selectedAccount, defaultCurrency: store.defaultCurrency)
+                applied.transactions[i].accountLabel = newLabel
+                applied.transactions[i].updatedAt = Date()
+            }
+        }
+        if let index = applied.transactions.firstIndex(where: { $0.transactionId == id }) {
+            applyAccountMapping(to: [index])
+            if let billedCurrency {
+                let value = billedCurrency.isEmpty ? nil : billedCurrency
+                let previous = applied.transactions[index].confirmedBilledCurrency
+                if value != previous {
+                    applied.transactions[index].confirmedBilledCurrency = value
+                    applied.corrections.append(CorrectionRecord(correctionId: UUID().uuidString, targetType: .transaction,
+                        targetId: id, fieldName: "confirmed_billed_currency", oldValue: previous ?? "",
+                        newValue: value ?? "", applyFuture: false))
+                }
+            }
+        }
         var updatedSource: SourceDocumentRecord?
-        if matchSourceAccount, !fields.account.isEmpty, fields.account != "Unknown account",
+        if matchSourceAccount, !accountLabel.isEmpty, accountLabel != "Unknown account",
            var source = try store.source(id: current.sourceDocumentId), source.mimeType.hasPrefix("image/") {
-            let account = PrivacyRedactor.maskAccountLabel(fields.account)
-            if source.cardName != account {
+            if source.cardName != accountLabel || (accountId != nil && source.importAccountId != selectedAccount?.id) {
                 applied.corrections.append(CorrectionRecord(correctionId: "corr_" + UUID().uuidString, targetType: .sourceDocument,
                     targetId: source.sourceDocumentId, fieldName: "card_name", oldValue: source.cardName ?? "",
-                    newValue: account, applyFuture: false, createdAt: Date()))
-                source.cardName = account; source.modifiedTime = Date(); updatedSource = source
+                    newValue: accountLabel, applyFuture: false, createdAt: Date()))
+                source.cardName = accountLabel
+                if accountId != nil { source.importAccountId = selectedAccount?.id }
+                source.modifiedTime = Date(); updatedSource = source
             }
-            for i in applied.transactions.indices where applied.transactions[i].sourceDocumentId == source.sourceDocumentId
-                && applied.transactions[i].accountLabel != account {
+            let siblingIndexes = applied.transactions.indices.filter {
+                applied.transactions[$0].sourceDocumentId == source.sourceDocumentId && applied.transactions[$0].transactionId != id
+            }
+            applyAccountMapping(to: Array(siblingIndexes))
+            for i in siblingIndexes where accountId == nil && applied.transactions[i].accountLabel != accountLabel {
                 let before = applied.transactions[i]
-                applied.transactions[i].accountLabel = account; applied.transactions[i].updatedAt = Date()
+                applied.transactions[i].accountLabel = accountLabel; applied.transactions[i].updatedAt = Date()
                 applied.corrections.append(CorrectionRecord(correctionId: "corr_" + UUID().uuidString, targetType: .transaction,
                     targetId: before.transactionId, fieldName: "account_label", oldValue: before.accountLabel,
-                    newValue: account, applyFuture: false, createdAt: Date()))
+                    newValue: accountLabel, applyFuture: false, createdAt: Date()))
             }
         }
         if confirm, let index = applied.transactions.firstIndex(where: { $0.transactionId == id }),
@@ -861,5 +941,28 @@ extension ImportPipelineService {
             }
         }
         try store.deleteSource(id: id)
+    }
+}
+
+
+extension ImportPipelineService {
+    @discardableResult
+    func cleanupSources(retentionDays: Int) throws -> Int {
+        guard processingAllowed, retentionDays > 0 else { return 0 }
+        var removed = 0
+        let cutoff = Date().addingTimeInterval(-Double(retentionDays) * 86_400)
+        for var source in try store.allSources() {
+            guard let path = source.localRelativePath else { continue }
+            let url = try files.url(path)
+            guard FileManager.default.fileExists(atPath: url.path),
+                  let modified = try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                  modified < cutoff else { continue }
+            // Record the retention decision first; a failed file removal can be retried.
+            source.originalFileStatus = "expired"
+            try store.commit { try store.upsert(source: source) }
+            try files.remove(path)
+            removed += 1
+        }
+        return removed
     }
 }

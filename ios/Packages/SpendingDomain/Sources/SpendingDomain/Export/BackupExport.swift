@@ -48,8 +48,8 @@ public enum BackupExporter {
         return try encoder.encode(payload)
     }
 
-    public static func transactionsCSV(_ transactions: [TransactionRecord]) -> String {
-        var lines = ["transaction_id,observed_month,transaction_date,merchant,amount,type,category,account_label"]
+    public static func transactionsCSV(_ transactions: [TransactionRecord], reviews: [ReviewItemRecord] = []) -> String {
+        var lines = ["transaction_id,observed_month,transaction_date,merchant,amount,type,category,account_label,account_id,currency,desktop_eligible,withheld_reasons,billed_currency"]
         for tx in transactions {
             let cols = [
                 tx.transactionId,
@@ -59,7 +59,12 @@ public enum BackupExporter {
                 String(tx.amount),
                 tx.transactionType.rawValue,
                 tx.category.rawValue,
-                escape(tx.accountLabel)
+                escape(tx.accountLabel),
+                escape(tx.accountId ?? ""),
+                escape(tx.currencyCode ?? ""),
+                String(Eligibility.transaction(tx, reviews: reviews).desktop),
+                escape(Eligibility.transaction(tx, reviews: reviews).reasons.joined(separator: ";")),
+                escape(tx.billedCurrencyCode ?? "")
             ]
             lines.append(cols.joined(separator: ","))
         }
@@ -67,7 +72,8 @@ public enum BackupExporter {
     }
 
     private static func escape(_ value: String) -> String {
-        if value.contains(",") || value.contains("\"") || value.contains("\n") {
+        let value = ["=", "+", "-", "@", "\t", "\r"].contains(where: { value.hasPrefix($0) }) ? "'" + value : value
+        if value.contains("\r") || value.contains(",") || value.contains("\"") || value.contains("\n") {
             return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         return value

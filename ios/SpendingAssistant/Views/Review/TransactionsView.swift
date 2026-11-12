@@ -4,10 +4,12 @@ import SpendingDomain
 
 struct TransactionsView: View {
     private let spendingOnly: Bool
+    private let currencyCode: String?
     @State private var filters: TransactionFilters
     @State private var showFilters = false
 
-    init(month: String? = nil, category: SpendingCategory? = nil) {
+    init(month: String? = nil, category: SpendingCategory? = nil, currencyCode: String? = nil) {
+        self.currencyCode = currencyCode
         spendingOnly = month != nil
         _filters = State(initialValue: TransactionFilters(category: category, dateMode: month == nil ? .all : .month, month: month ?? ""))
     }
@@ -28,11 +30,10 @@ struct TransactionsView: View {
         let visible = transactions.filter { tx in
             guard !removed.contains(tx.transactionId) else { return false }
             let row = tx.toRecord()
-            return filters.includes(row)
+            return (currencyCode == nil || row.billedCurrencyCode == currencyCode)
+                && filters.includes(row)
                 && (query.isEmpty || (row.merchantNormalized + " " + row.accountLabel).localizedCaseInsensitiveContains(query))
-                && (!spendingOnly || (row.validationStatus != .rejected && row.amount.isFinite
-                    && row.observedMonth == String(row.transactionDate.prefix(7))
-                    && Validator.isValidDate(row.transactionDate) && SpendingMath.spendingAmount(row) > 0))
+                && (!spendingOnly || (Eligibility.transaction(row).local && SpendingMath.spendingAmount(row) > 0))
         }
         let visibleSelection = selected.intersection(visible.map(\.transactionId))
         List {
@@ -106,7 +107,7 @@ struct TransactionsView: View {
     }
     private func rowDetails(_ tx: SDTransaction) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack { Text(tx.merchantNormalized); Spacer(); Text(tx.amount, format: .currency(code: "USD")) }
+            HStack { Text(tx.merchantNormalized); Spacer(); Text(MoneyDisplay.format(tx.amount, currency: tx.billedCurrencyCode)) }
             Text("\(tx.transactionDate) · \(tx.accountLabel) · \(tx.categoryRaw.displayTitle)").font(.caption).foregroundStyle(.secondary)
             if tx.validationStatusRaw == ValidationStatus.rejected.rawValue { Text("Rejected — excluded from totals").font(.caption).foregroundStyle(.orange) }
         }

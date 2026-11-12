@@ -5,7 +5,7 @@ import SpendingDomain
 /// Shared by the app and in-memory integration tests.
 enum SpendingPersistence {
     static var schema: Schema {
-        Schema([SDSourceDocument.self, SDTransaction.self, SDAssetSnapshot.self, SDReviewItem.self,
+        Schema([SDAccount.self, SDDataset.self, SDSourceDocument.self, SDTransaction.self, SDAssetSnapshot.self, SDReviewItem.self,
                 SDCorrection.self, SDMonthlySummary.self, SDCashFlowSummary.self, SDAnomaly.self])
     }
 }
@@ -24,11 +24,17 @@ struct SpendingAssistantApp: App {
             self.container = container
             let files = inMemory ? SourceFileStore(directory: FileManager.default.temporaryDirectory
                 .appendingPathComponent("spending-ui-tests", isDirectory: true)) : SourceFileStore()
+            ExportFile.cleanup()
             let service = ImportPipelineService(store: LocalStore(modelContext: container.mainContext), files: files)
+            let args = ProcessInfo.processInfo.arguments
+            let lockForUITest = args.contains("--ui-testing-lock") || args.contains("--ui-testing-lock-deny")
+            // UI tests share the simulator defaults suite; always reset so lock does not leak across cases.
+            if inMemory { UserDefaults.standard.set(lockForUITest, forKey: "appLockEnabled") }
+            service.processingAllowed = inMemory ? !lockForUITest : !UserDefaults.standard.bool(forKey: "appLockEnabled")
             #if DEBUG
-            if inMemory && ProcessInfo.processInfo.arguments.contains("--ui-testing-fixture") {
+            if inMemory && args.contains("--ui-testing-fixture") {
                 try service.seedDemo()
-                if ProcessInfo.processInfo.arguments.contains("--ui-testing-unresolved-confirmation") {
+                if args.contains("--ui-testing-unresolved-confirmation") {
                     let issue = ReviewItemRecord(reviewItemId: "ui-test-duplicate", targetType: .transaction,
                         targetId: "txn_demo_2", issueType: .duplicateRisk, severity: .medium, question: "Check for a duplicate charge.")
                     try service.store.commit { try service.store.upsert(review: issue) }
@@ -42,7 +48,7 @@ struct SpendingAssistantApp: App {
     }
 
     var body: some Scene {
-        WindowGroup { RootTabView().environment(imports) }
+        WindowGroup { PrivacyRootView().environment(imports) }
             .modelContainer(container)
     }
 }

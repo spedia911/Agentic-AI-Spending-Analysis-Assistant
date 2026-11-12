@@ -96,7 +96,7 @@ struct MerchantReviewView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(group.name).font(.headline)
-                    Text("\(group.origin?.title ?? "Other activity") · \(group.count) transactions · \(group.totalAmount.formatted(.currency(code: "USD")))")
+                    Text("\(group.origin?.title ?? "Other activity") · \(group.count) transactions")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if group.categories.count > 1 {
@@ -249,7 +249,7 @@ private struct MerchantCategoryDetailView: View {
             Section("Sample transactions") {
                 ForEach(rows.prefix(12), id: \.transactionId) { tx in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(tx.transactionDate) · \(tx.amount.formatted(.currency(code: "USD")))")
+                        Text("\(tx.transactionDate) · \(MoneyDisplay.format(tx.amount, currency: tx.billedCurrencyCode))")
                         Text("\(tx.accountLabel) · \(tx.categoryRaw.displayTitle)")
                             .font(.caption)
                             .foregroundStyle(.secondary)

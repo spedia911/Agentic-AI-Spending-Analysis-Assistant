@@ -77,6 +77,7 @@ public enum DuplicateBatch {
         return left.compactMap { key, rows -> DuplicateBatchMatch? in
             guard rows.count == 1, let keep = rows.first, let candidates = right[key], candidates.count == 1,
                   let remove = candidates.first,
+                  keep.accountId == remove.accountId, keep.billedCurrencyCode == remove.billedCurrencyCode,
                   keep.origin == nil || remove.origin == nil || keep.origin == remove.origin else { return nil }
             return DuplicateBatchMatch(keep: keep, remove: remove)
         }.filter(filter.includes).sorted {

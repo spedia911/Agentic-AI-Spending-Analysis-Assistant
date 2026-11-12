@@ -33,7 +33,6 @@ public enum DashboardInsightBuilder {
         let pendingReviews = data.reviewItems.filter { $0.status == .pending && !$0.isAdvisory }
         let openAnomalies = data.anomalies.filter { $0.status == .open }
         let latestFlow = data.cashFlowSummaries.sorted { $0.month > $1.month }.first
-        let concern = data.assetTrends.filter { $0.maintainabilityFlag == .concern }.sorted { $0.month > $1.month }.first
 
         if !sourceErrors.isEmpty {
             insights.append(DashboardInsight(
@@ -87,17 +86,6 @@ public enum DashboardInsightBuilder {
                 title: "Negative cash flow in \(latestFlow.month)",
                 detail: "Net cash flow is \(String(format: "%.2f", latestFlow.netCashFlow)). Review spending and income for that month.",
                 actionLabel: "Open cash flow",
-                actionRoute: "home"
-            ))
-        }
-
-        if let concern {
-            insights.append(DashboardInsight(
-                insightId: "asset-concern",
-                priority: .high,
-                title: "Asset balance pressure",
-                detail: "\(concern.accountLabel) flagged as concern in \(concern.month).",
-                actionLabel: "View assets",
                 actionRoute: "home"
             ))
         }

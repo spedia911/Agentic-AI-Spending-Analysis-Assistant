@@ -40,6 +40,9 @@ struct ReviewView: View {
 
         NavigationStack {
             List {
+                Section("Account & currency") {
+                    NavigationLink("Review account and currency") { AccountCurrencyReviewView() }
+                }
                 Section("Batch corrections") {
                     NavigationLink {
                         MerchantReviewView()
@@ -71,10 +74,10 @@ struct ReviewView: View {
                             NavigationLink(value: target) {
                                 VStack(alignment: .leading) {
                                     if let tx = txById[item.targetId] {
-                                        Text("\(tx.merchantNormalized) · \(tx.amount.formatted(.currency(code: "USD")))")
-                                        Text("\(tx.transactionDate) · \(tx.transactionTypeRaw.displayTitle) · USD").font(.caption)
+                                        Text("\(tx.merchantNormalized) · \(MoneyDisplay.format(tx.amount, currency: tx.billedCurrencyCode))")
+                                        Text("\(tx.transactionDate) · \(tx.transactionTypeRaw.displayTitle) · \(tx.billedCurrencyCode ?? "Unmapped currency")").font(.caption)
                                     } else if let asset = assetsById[item.targetId] {
-                                        Text("\(asset.accountLabel) · \(asset.balance.formatted(.currency(code: "USD")))")
+                                        Text("\(asset.accountLabel) · \(MoneyDisplay.format(asset.balance, currency: asset.currencyCode))")
                                     }
                                     ReviewLabel(item: item)
                                     if showReviewed, let answer = item.userAnswer {
@@ -153,24 +156,15 @@ struct TransactionDetailView: View {
     let transactionId: String
     @Query private var transactions: [SDTransaction]
     @Query private var reviews: [SDReviewItem]
-    @Query private var assets: [SDAssetSnapshot]
     @Query private var sources: [SDSourceDocument]
 
     var body: some View {
         if let transaction = transactions.first(where: { $0.transactionId == transactionId }) {
             TransactionEditor(transaction: transaction.toRecord(),
                 reviews: reviews.filter { $0.targetTypeRaw == ReviewTargetType.transaction.rawValue && $0.targetId == transactionId && $0.statusRaw == ReviewItemStatus.pending.rawValue }.map { $0.toRecord() },
-                knownAccounts: knownAccounts,
                 sourceAccounts: Set(transactions.filter { $0.sourceDocumentId == transaction.sourceDocumentId }.map(\.accountLabel)),
                 source: sources.first { $0.sourceDocumentId == transaction.sourceDocumentId })
         } else { ContentUnavailableView("Transaction unavailable", systemImage: "doc.questionmark") }
-    }
-    private var knownAccounts: [String] {
-        let labels = sources.compactMap(\.cardName) + transactions.map(\.accountLabel) + assets.map(\.accountLabel)
-        var seen: Set<String> = ["unknown account"]
-        return labels.map { PrivacyRedactor.maskAccountLabel($0) }
-            .filter { seen.insert($0.lowercased()).inserted }
-            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 }
 
@@ -179,9 +173,9 @@ private struct TransactionEditor: View {
     @State private var deleteTransaction = false
     @State private var undoStack: [ReviewUndoSnapshot] = []
     @Environment(ImportCoordinator.self) private var imports
+    @Query private var accounts: [SDAccount]
     let transaction: TransactionRecord
     let reviews: [ReviewItemRecord]
-    let knownAccounts: [String]
     let sourceAccounts: Set<String>
     let source: SDSourceDocument?
     @State private var date: String
@@ -189,16 +183,17 @@ private struct TransactionEditor: View {
     @State private var amount: String
     @FocusState private var amountFocused: Bool
     @State private var type: TransactionType
-    @State private var account: String
+    @State private var accountId: String
+    @State private var billedCurrency: String
+    @AppStorage("defaultCurrencyCode") private var defaultCurrency = ""
     @State private var selectedCategory: SpendingCategory
     @State private var askRemember = false
     @State private var showDetails = false
-    @State private var enterAccount = false
-    @State private var matchScreenshotAccount = true
+    @State private var matchScreenshotAccount = false
     @State private var message: String?
 
-    init(transaction: TransactionRecord, reviews: [ReviewItemRecord], knownAccounts: [String], sourceAccounts: Set<String>, source: SDSourceDocument?) {
-        self.transaction = transaction; self.reviews = reviews; self.knownAccounts = knownAccounts; self.sourceAccounts = sourceAccounts; self.source = source
+    init(transaction: TransactionRecord, reviews: [ReviewItemRecord], sourceAccounts: Set<String>, source: SDSourceDocument?) {
+        self.transaction = transaction; self.reviews = reviews; self.sourceAccounts = sourceAccounts; self.source = source
         let normalized = TransactionClassification.normalize(
             type: transaction.transactionType,
             category: transaction.category,
@@ -208,8 +203,13 @@ private struct TransactionEditor: View {
         _merchant = State(initialValue: transaction.merchantNormalized)
         _amount = State(initialValue: String(transaction.amount))
         _type = State(initialValue: normalized.type)
-        _account = State(initialValue: transaction.accountLabel)
+        _accountId = State(initialValue: transaction.accountId ?? "")
+        _billedCurrency = State(initialValue: transaction.confirmedBilledCurrency ?? "")
         _selectedCategory = State(initialValue: normalized.category)
+    }
+
+    private var selectedAccountLabel: String {
+        accounts.first { $0.accountId == accountId }?.label ?? transaction.accountLabel
     }
 
     var body: some View {
@@ -231,7 +231,6 @@ private struct TransactionEditor: View {
                             .accessibilityIdentifier("clearTransactionAmount")
                     }
                 }
-                LabeledContent("Currency", value: "USD")
                 Picker("Type", selection: Binding(
                     get: { type },
                     set: { newType in
@@ -242,7 +241,12 @@ private struct TransactionEditor: View {
                 )) {
                     ForEach(TransactionType.allCases, id: \.self) { Text($0.rawValue.displayTitle).tag($0) }
                 }
-                accountPicker
+                AccountSelector(accountId: $accountId, suggestedName: transaction.accountLabel,
+                                suggestedCurrency: transaction.currencyEvidence.code)
+                billedCurrencyControls
+                if accountId.isEmpty && transaction.billedCurrencyCode == nil && defaultCurrency.isEmpty {
+                    Text("Set a billed currency to include this transaction in totals. Adding an account is optional.").font(.footnote).foregroundStyle(.secondary)
+                }
                 if canMatchScreenshotAccount {
                     Toggle("Match account for this screenshot", isOn: $matchScreenshotAccount)
                     Text("Also updates the other transactions from this source.").font(.footnote).foregroundStyle(.secondary)
@@ -266,7 +270,7 @@ private struct TransactionEditor: View {
                             undoStack.removeLast()
                             date = snapshot.transaction.transactionDate; merchant = snapshot.transaction.merchantNormalized
                             amount = String(snapshot.transaction.amount); type = snapshot.transaction.transactionType
-                            account = snapshot.transaction.accountLabel; selectedCategory = snapshot.transaction.category
+                            accountId = snapshot.transaction.accountId ?? ""; billedCurrency = snapshot.transaction.confirmedBilledCurrency ?? ""; selectedCategory = snapshot.transaction.category
                             message = "Restored previous values and review status, including remembered category changes."
                         } catch { message = PrivacyRedactor.safeErrorDetail(error) }
                     }
@@ -322,36 +326,6 @@ private struct TransactionEditor: View {
     }
 
     private var requiredReviews: [ReviewItemRecord] { reviews.filter { !$0.isAdvisory } }
-
-    private enum AccountChoice: Hashable {
-        case known(String), custom
-    }
-
-    @ViewBuilder private var accountPicker: some View {
-        let unknown = "Unknown account"
-        let choices = knownAccounts + (!enterAccount && !account.isEmpty && account != unknown && !knownAccounts.contains(account) ? [account] : [])
-        Picker("Account", selection: Binding<AccountChoice>(
-            get: { enterAccount ? .custom : .known(account.isEmpty ? unknown : account) },
-            set: { choice in
-                switch choice {
-                case .known(let label): account = label; enterAccount = false
-                case .custom:
-                    if account == unknown { account = "" }
-                    enterAccount = true
-                }
-            }
-        )) {
-            ForEach(choices, id: \.self) { Text($0).tag(AccountChoice.known($0)) }
-            Text(unknown).tag(AccountChoice.known(unknown))
-            Text("Enter account name").tag(AccountChoice.custom)
-        }
-        .pickerStyle(.menu)
-        .accessibilityIdentifier("transactionAccount")
-        if enterAccount {
-            TextField("Account name", text: $account)
-                .accessibilityIdentifier("customTransactionAccount")
-        }
-    }
 
     private var evidenceDetails: some View {
         Form {
@@ -410,6 +384,31 @@ private struct TransactionEditor: View {
         }
     }
 
+    private var selectedAccountCurrency: String? {
+        accounts.first { $0.accountId == accountId }?.spendingCurrency
+    }
+
+    @ViewBuilder private var billedCurrencyControls: some View {
+        let evidence = transaction.currencyEvidence
+        let assigned = (transaction.accountId ?? "") == accountId ? transaction.defaultBilledCurrency : selectedAccountCurrency
+        let fallback = assigned ?? (defaultCurrency.isEmpty ? nil : defaultCurrency)
+        let suggested = evidence.code ?? fallback
+        LabeledContent("Billed currency", value: billedCurrency.isEmpty ? (suggested.map { "\($0) suggested" } ?? "Unknown") : billedCurrency)
+        if billedCurrency.isEmpty && evidence.conflicts(with: fallback) {
+            Text("Check the currency of the billed amount. The row stays out of totals until this is resolved.").font(.footnote)
+        }
+        CurrencySelector(title: "Set billed currency for this transaction", selection: $billedCurrency)
+        if let code = fallback, billedCurrency != code {
+            Button("Confirm billed currency (\(code))") { billedCurrency = code }
+        }
+        if !billedCurrency.isEmpty, let pair = accounts.first(where: { $0.accountId == accountId }), billedCurrency != pair.currencyCode {
+            Text("This currency applies only to this transaction. Desktop exports withhold it until the bridge supports a different billed currency.").font(.caption)
+        }
+        if !billedCurrency.isEmpty {
+            Button("Clear billed currency correction") { billedCurrency = "" }
+        }
+    }
+
     private var categoryForConfirmation: SpendingCategory? {
         guard selectedCategory != .uncategorized else { return nil }
         let needsCategory = requiredReviews.contains { $0.issueType == .unclearCategory }
@@ -419,9 +418,10 @@ private struct TransactionEditor: View {
     }
 
     private var canMatchScreenshotAccount: Bool {
-        let label = PrivacyRedactor.maskAccountLabel(account)
-        return source?.mimeType.hasPrefix("image/") == true && label != "Unknown account"
-            && (label != transaction.accountLabel || sourceAccounts.contains(where: { $0 != label }))
+        let label = selectedAccountLabel
+        return source?.mimeType.hasPrefix("image/") == true && !accountId.isEmpty && label != "Unknown account"
+            && (label != transaction.accountLabel || accountId != (transaction.accountId ?? "")
+                || sourceAccounts.contains(where: { $0 != label }))
     }
 
     private func confirm(remember: Bool) {
@@ -434,8 +434,9 @@ private struct TransactionEditor: View {
                 merchant: remember ? Normalizer.normalizeMerchant(merchant) : nil)
             let changed = try imports.service.editTransaction(id: transaction.transactionId,
                 fields: TransactionEdit(date: date.trimmingCharacters(in: .whitespacesAndNewlines), merchant: merchant,
-                    amount: number, type: type, account: PrivacyRedactor.maskAccountLabel(account)),
-                category: categoryForConfirmation, rememberCategory: remember, confirm: true, matchSourceAccount: match)
+                    amount: number, type: type, account: selectedAccountLabel),
+                category: categoryForConfirmation, rememberCategory: remember, confirm: true, matchSourceAccount: match,
+                accountId: accountId, billedCurrency: billedCurrency)
             if changed { undoStack.append(snapshot) }
             dismiss()
         } catch { message = PrivacyRedactor.safeErrorDetail(error) }

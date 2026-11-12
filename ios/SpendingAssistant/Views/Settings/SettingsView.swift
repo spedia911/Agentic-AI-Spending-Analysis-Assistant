@@ -1,32 +1,45 @@
 import SwiftUI
-import SwiftData
+import LocalAuthentication
 import SpendingDomain
 
 struct SettingsView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(ImportCoordinator.self) private var imports
     @AppStorage("sourceImageRetentionDays") private var retentionDays = 30
     @AppStorage("enableFoundationModels") private var enableFoundationModels = true
-    @State private var exportURL: URL?
+    @AppStorage("appLockEnabled") private var appLockEnabled = false
+    @AppStorage("defaultCurrencyCode") private var defaultCurrency = ""
     @State private var message: String?
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("Export") {
+                    NavigationLink { ExportDataView() } label: {
+                        Label("Export data", systemImage: "square.and.arrow.up")
+                    }
+                }
+                Section("Accounts & currency") {
+                    CurrencySelector(title: "Default currency", selection: Binding(get: { defaultCurrency }, set: saveDefaultCurrency))
+                        .disabled(imports.isBusy)
+                    if !defaultCurrency.isEmpty { Button("Clear default currency") { defaultCurrency = "" } }
+                    Text("Used for transactions without an account or an assigned currency. Changing it keeps currencies already assigned.").font(.caption)
+                    NavigationLink("Manage accounts") { AccountsView() }
+                }
+                Section("Data safety") {
+                    NavigationLink("Backup & restore") { BackupSettingsView() }
+                    NavigationLink {
+                        SourceRetentionSettingsView()
+                    } label: {
+                        LabeledContent("Source file retention", value: retentionDays == 0 ? "Keep indefinitely" : "\(retentionDays) days")
+                    }
+                    Toggle("Require Face ID / device passcode", isOn: Binding(get: { appLockEnabled }, set: setAppLock))
+                    Text("When enabled, authenticate on launch and after leaving the app. App previews are always covered.").font(.caption)
+                }
                 Section("On-device AI") {
                     Toggle("Use Foundation Models when available", isOn: $enableFoundationModels)
                     Text(OnDeviceAIFactory.status)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                }
-                Section("Retention") {
-                    Stepper("Keep source images \(retentionDays) days (0 = forever)", value: $retentionDays, in: 0...365)
-                    Button("Run retention cleanup now") { cleanup() }
-                }
-                Section("Backup") {
-                    Button("Export JSON backup") { exportBackup() }
-                    if let exportURL {
-                        ShareLink(item: exportURL) { Text("Share export file") }
-                    }
                 }
                 if let message {
                     Section { Text(message).font(.footnote) }
@@ -48,43 +61,53 @@ struct SettingsView: View {
         }
     }
 
-    private func cleanup() {
+    private func saveDefaultCurrency(_ currency: String) {
         do {
-            let store = LocalStore(modelContext: modelContext)
-            let sources = try store.allSources()
-            SourceFileStore.cleanup(retentionDays: retentionDays, sources: sources)
-            message = "Retention cleanup finished."
-        } catch {
-            message = PrivacyRedactor.safeErrorDetail(error)
-        }
+            try imports.service.store.applyDefaultCurrencyToUnassignedTransactions(currency)
+            defaultCurrency = currency
+            message = nil
+        } catch { message = PrivacyRedactor.safeErrorDetail(error) }
     }
 
-    private func exportBackup() {
-        do {
-            let store = LocalStore(modelContext: modelContext)
-            let summaries = SummaryGenerator.generate(
-                transactions: try store.allTransactions(),
-                assetSnapshots: try store.allAssets()
-            )
-            let payload = BackupPayload(
-                sourceDocuments: try store.allSources(),
-                transactions: try store.allTransactions(),
-                assetSnapshots: try store.allAssets(),
-                reviewItems: try store.allReviews(),
-                corrections: try store.allCorrections(),
-                monthlySummaries: summaries.monthlySummaries,
-                quarterlySummaries: summaries.quarterlySummaries,
-                cashFlowSummaries: summaries.cashFlowSummaries,
-                assetTrends: summaries.assetTrends,
-                anomalies: try store.allAnomalies()
-            )
-            let data = try BackupExporter.jsonData(payload)
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("spending-backup.json")
-            try data.write(to: url, options: .atomic)
-            exportURL = url
-            message = "Backup ready to share."
-        } catch {
-            message = PrivacyRedactor.safeErrorDetail(error)
+    private func setAppLock(_ enabled: Bool) {
+        if enabled, !LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) {
+            message = "Set a device passcode before enabling app lock."
+            return
+        }
+        appLockEnabled = enabled
+        message = nil
+    }
+
+}
+
+private struct SourceRetentionSettingsView: View {
+    @Environment(ImportCoordinator.self) private var imports
+    @AppStorage("sourceImageRetentionDays") private var retentionDays = 30
+    @State private var confirmCleanup = false
+    @State private var message: String?
+
+    var body: some View {
+        Form {
+            Section {
+                Stepper(retentionDays == 0 ? "Keep stored copies indefinitely" : "Keep stored copies for \(retentionDays) days",
+                        value: $retentionDays, in: 0...365)
+                Text("The app checks the age of its stored screenshot and PDF copies when you open it. Set this to 0 days to keep them indefinitely.")
+                Text("Cleanup keeps extracted transactions, balances, OCR text, and reviews. Your originals in Photos or Files stay where they are.")
+            }
+            Section {
+                Button("Remove expired copies now", role: .destructive) { confirmCleanup = true }
+                    .disabled(retentionDays == 0 || imports.isBusy)
+                if let message { Text(message).font(.footnote) }
+            }
+        }
+        .navigationTitle("Source file retention")
+        .confirmationDialog("Remove stored copies older than \(retentionDays) days?", isPresented: $confirmCleanup, titleVisibility: .visible) {
+            Button("Remove expired copies", role: .destructive) {
+                do {
+                    let count = try imports.service.cleanupSources(retentionDays: retentionDays)
+                    message = count == 0 ? "No stored copies had expired." : "Removed \(count) expired source copies."
+                } catch { message = PrivacyRedactor.safeErrorDetail(error) }
+            }
         }
     }
 }

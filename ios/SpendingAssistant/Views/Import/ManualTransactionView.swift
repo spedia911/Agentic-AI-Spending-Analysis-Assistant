@@ -6,12 +6,13 @@ struct ManualTransactionView: View {
     @Environment(\.dismiss) private var dismiss
     var sourceId: String? = nil
     var initialCard: String = ""
+    var initialAccountId: String = ""
     @State private var date = Date()
     @State private var merchant = ""
     @State private var amount = ""
-    @State private var card = ""
     @State private var type: TransactionType = .expense
     @State private var category: SpendingCategory = .uncategorized
+    @State private var accountId = ""
     @State private var error: String?
 
     var body: some View {
@@ -32,7 +33,7 @@ struct ManualTransactionView: View {
                     )) {
                         ForEach(TransactionType.allCases.filter { $0 != .unknown }, id: \.self) { Text($0.rawValue.displayTitle).tag($0) }
                     }
-                    TextField("Card / account", text: $card)
+                    AccountSelector(accountId: $accountId, suggestedName: initialCard, identifier: "manualAccountCurrencyPicker")
                     Picker("Category", selection: Binding(
                         get: { category },
                         set: { newCategory in
@@ -62,7 +63,7 @@ struct ManualTransactionView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.disabled(imports.isBusy) }
             }
             .scrollDismissesKeyboard(.interactively)
-            .onAppear { card = initialCard }
+            .task { accountId = initialAccountId }
         }
     }
     private func save() {
@@ -73,7 +74,7 @@ struct ManualTransactionView: View {
         f.dateFormat = "yyyy-MM-dd"
         do {
             try imports.service.addManualTransaction(TransactionEdit(date: f.string(from: date), merchant: merchant,
-                amount: type == .income || type == .refund ? value : -value, type: type, account: card), category: category, sourceId: sourceId)
+                amount: type == .income || type == .refund ? value : -value, type: type, account: initialCard), category: category, sourceId: sourceId, accountId: accountId)
             dismiss()
         } catch { self.error = PrivacyRedactor.safeErrorDetail(error) }
     }

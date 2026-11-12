@@ -62,7 +62,6 @@ struct RootTabView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await activate() } }
         }
-        .onChange(of: retentionDays) { _, _ in cleanup() }
     }
 
     private func showNextDetails() {
@@ -71,18 +70,20 @@ struct RootTabView: View {
     }
 
     private func activate() async {
-        await imports.drainShareInbox()
+        guard imports.service.processingAllowed else { return }
         do {
             try imports.service.backfillFingerprints()
             try imports.service.backfillTransactionOrigins()
             try imports.service.store.reconcileAdvisoryReviews()
+            try imports.service.store.applyDefaultCurrencyToUnassignedTransactions(imports.service.store.defaultCurrency)
         }
         catch { imports.shareMessage = "Source recovery: " + PrivacyRedactor.safeErrorDetail(error) }
         cleanup()
     }
 
     private func cleanup() {
-        do { SourceFileStore.cleanup(retentionDays: retentionDays, sources: try imports.service.store.allSources()) }
+        guard imports.service.processingAllowed else { return }
+        do { try imports.service.cleanupSources(retentionDays: retentionDays) }
         catch { imports.shareMessage = PrivacyRedactor.safeErrorDetail(error) }
     }
 }

@@ -8,7 +8,7 @@ final class AssetForwardFillTests: XCTestCase {
             sourceDocumentId: "s",
             observedMonth: "2026-03",
             observedDate: "2026-03-20",
-            accountLabel: "Roth IRA",
+            accountLabel: "Roth IRA", accountId: "00000000-0000-0000-0000-000000000001", currencyCode: "USD",
             balance: 10_000,
             balanceType: .rothIra,
             confidence: 1,

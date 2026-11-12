@@ -30,7 +30,7 @@ public enum Normalizer {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let isParenthesesNegative = trimmed.hasPrefix("(") && trimmed.hasSuffix(")")
-        let hasNegativeSign = trimmed.contains("-") || trimmed.range(of: #"\bCR\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let hasNegativeSign = trimmed.contains("-") || trimmed.contains("−") || trimmed.range(of: #"\bCR\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         let numericChars = trimmed.replacingOccurrences(of: #"[^0-9.]"#, with: "", options: .regularExpression)
         guard let numeric = Double(numericChars) else { return nil }
         return (isParenthesesNegative || hasNegativeSign) ? -numeric : numeric

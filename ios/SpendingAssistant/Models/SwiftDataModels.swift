@@ -22,6 +22,8 @@ final class SDSourceDocument {
     var observedMonthHint: String?
     var ocrLinesJSON: String?
     var imageDeletedAt: Date?
+    var originalFileStatus: String?
+    var importAccountId: String?
 
     init(from record: SourceDocumentRecord) {
         self.sourceDocumentId = record.sourceDocumentId
@@ -38,6 +40,8 @@ final class SDSourceDocument {
         self.contentFingerprint = record.contentFingerprint
         self.importedJSON = record.importedJSON
         self.imageDeletedAt = record.imageDeletedAt
+        self.originalFileStatus = record.originalFileStatus
+        self.importAccountId = record.importAccountId
         self.ocrLinesJSON = record.ocrLinesJSON
         self.observedMonthHint = record.observedMonthHint
         self.screenshotLayout = record.screenshotLayout
@@ -58,6 +62,8 @@ final class SDSourceDocument {
         contentFingerprint = record.contentFingerprint
         importedJSON = record.importedJSON
         imageDeletedAt = record.imageDeletedAt
+        originalFileStatus = record.originalFileStatus
+        importAccountId = record.importAccountId
         ocrLinesJSON = record.ocrLinesJSON
         observedMonthHint = record.observedMonthHint
         screenshotLayout = record.screenshotLayout
@@ -65,7 +71,7 @@ final class SDSourceDocument {
     }
 
     func toRecord() -> SourceDocumentRecord {
-        SourceDocumentRecord(
+        var record = SourceDocumentRecord(
             sourceDocumentId: sourceDocumentId,
             sourceType: SourceType(rawValue: sourceTypeRaw) ?? .files,
             fileName: fileName,
@@ -83,8 +89,11 @@ final class SDSourceDocument {
             screenshotLayout: screenshotLayout,
             observedMonthHint: observedMonthHint,
             ocrLinesJSON: ocrLinesJSON,
-            imageDeletedAt: imageDeletedAt
+            imageDeletedAt: imageDeletedAt,
+            originalFileStatus: originalFileStatus
         )
+        record.importAccountId = importAccountId
+        return record
     }
 }
 
@@ -98,6 +107,11 @@ final class SDTransaction {
     var merchantNormalized: String
     var amount: Double
     var transactionTypeRaw: String
+    var accountId: String?
+    var currencyCode: String?
+    var confirmedBilledCurrency: String?
+    var assumedCurrencyCode: String?
+    var billedCurrencyCode: String? { confirmedBilledCurrency ?? assumedCurrencyCode ?? currencyCode }
     var accountLabel: String
     var originRaw: String?
     var categoryRaw: String
@@ -119,6 +133,10 @@ final class SDTransaction {
         self.merchantNormalized = record.merchantNormalized
         self.amount = record.amount
         self.transactionTypeRaw = record.transactionType.rawValue
+        self.accountId = record.accountId
+        self.currencyCode = record.currencyCode
+        self.confirmedBilledCurrency = record.confirmedBilledCurrency
+        self.assumedCurrencyCode = record.assumedCurrencyCode
         self.accountLabel = record.accountLabel
         self.originRaw = record.origin?.rawValue
         self.categoryRaw = record.category.rawValue
@@ -140,6 +158,10 @@ final class SDTransaction {
         merchantNormalized = record.merchantNormalized
         amount = record.amount
         transactionTypeRaw = record.transactionType.rawValue
+        accountId = record.accountId
+        currencyCode = record.currencyCode
+        confirmedBilledCurrency = record.confirmedBilledCurrency
+        assumedCurrencyCode = record.assumedCurrencyCode
         accountLabel = record.accountLabel
         originRaw = record.origin?.rawValue
         categoryRaw = record.category.rawValue
@@ -154,7 +176,7 @@ final class SDTransaction {
     }
 
     func toRecord() -> TransactionRecord {
-        TransactionRecord(
+        var record = TransactionRecord(
             transactionId: transactionId,
             sourceDocumentId: sourceDocumentId,
             observedMonth: observedMonth,
@@ -164,6 +186,8 @@ final class SDTransaction {
             amount: amount,
             transactionType: TransactionType(rawValue: transactionTypeRaw) ?? .unknown,
             accountLabel: accountLabel,
+            accountId: accountId,
+            currencyCode: currencyCode,
             origin: originRaw.flatMap(TransactionOrigin.init(rawValue:)),
             category: SpendingCategory(rawValue: categoryRaw) ?? .uncategorized,
             categoryConfidence: categoryConfidence,
@@ -175,6 +199,9 @@ final class SDTransaction {
             createdAt: createdAt,
             updatedAt: updatedAt
         )
+        record.confirmedBilledCurrency = confirmedBilledCurrency
+        record.assumedCurrencyCode = assumedCurrencyCode
+        return record
     }
 }
 
@@ -184,6 +211,9 @@ final class SDAssetSnapshot {
     var sourceDocumentId: String
     var observedMonth: String
     var observedDate: String
+    var accountId: String?
+    var currencyCode: String?
+    var confirmedCurrencyCode: String?
     var accountLabel: String
     var balance: Double
     var balanceTypeRaw: String
@@ -197,6 +227,9 @@ final class SDAssetSnapshot {
         self.sourceDocumentId = record.sourceDocumentId
         self.observedMonth = record.observedMonth
         self.observedDate = record.observedDate
+        self.accountId = record.accountId
+        self.currencyCode = record.currencyCode
+        self.confirmedCurrencyCode = record.confirmedCurrencyCode
         self.accountLabel = record.accountLabel
         self.balance = record.balance
         self.balanceTypeRaw = record.balanceType.rawValue
@@ -210,6 +243,9 @@ final class SDAssetSnapshot {
         sourceDocumentId = record.sourceDocumentId
         observedMonth = record.observedMonth
         observedDate = record.observedDate
+        accountId = record.accountId
+        currencyCode = record.currencyCode
+        confirmedCurrencyCode = record.confirmedCurrencyCode
         accountLabel = record.accountLabel
         balance = record.balance
         balanceTypeRaw = record.balanceType.rawValue
@@ -220,12 +256,14 @@ final class SDAssetSnapshot {
     }
 
     func toRecord() -> AssetSnapshotRecord {
-        AssetSnapshotRecord(
+        var record = AssetSnapshotRecord(
             assetSnapshotId: assetSnapshotId,
             sourceDocumentId: sourceDocumentId,
             observedMonth: observedMonth,
             observedDate: observedDate,
             accountLabel: accountLabel,
+            accountId: accountId,
+            currencyCode: currencyCode,
             balance: balance,
             balanceType: BalanceType(rawValue: balanceTypeRaw) ?? .unknown,
             confidence: confidence,
@@ -233,6 +271,8 @@ final class SDAssetSnapshot {
             evidenceRegion: evidenceRegion,
             createdAt: createdAt
         )
+        record.confirmedCurrencyCode = confirmedCurrencyCode
+        return record
     }
 }
 
@@ -337,6 +377,7 @@ final class SDCorrection {
 
 @Model
 final class SDMonthlySummary {
+    var currencyCode: String?
     var month: String
     var category: String
     var totalAmount: Double
@@ -347,6 +388,7 @@ final class SDMonthlySummary {
     var completenessStatusRaw: String
 
     init(from record: MonthlySummaryRecord) {
+        self.currencyCode = record.currencyCode
         self.month = record.month
         self.category = record.category
         self.totalAmount = record.totalAmount
@@ -366,14 +408,16 @@ final class SDMonthlySummary {
             reviewedCount: reviewedCount,
             unresolvedCount: unresolvedCount,
             monthOverMonthDelta: monthOverMonthDelta,
-            completenessStatus: CompletenessStatus(rawValue: completenessStatusRaw) ?? .unknown
+            completenessStatus: CompletenessStatus(rawValue: completenessStatusRaw) ?? .unknown,
+            currencyCode: currencyCode
         )
     }
 }
 
 @Model
 final class SDCashFlowSummary {
-    @Attribute(.unique) var month: String
+    var currencyCode: String?
+    var month: String
     var spendingTotal: Double
     var incomeTotal: Double
     var refundTotal: Double
@@ -386,6 +430,7 @@ final class SDCashFlowSummary {
     var completenessStatusRaw: String
 
     init(from record: CashFlowSummaryRecord) {
+        self.currencyCode = record.currencyCode
         self.month = record.month
         self.spendingTotal = record.spendingTotal
         self.incomeTotal = record.incomeTotal
@@ -411,7 +456,8 @@ final class SDCashFlowSummary {
             netCashFlow: netCashFlow,
             transactionCount: transactionCount,
             unresolvedCount: unresolvedCount,
-            completenessStatus: CompletenessStatus(rawValue: completenessStatusRaw) ?? .unknown
+            completenessStatus: CompletenessStatus(rawValue: completenessStatusRaw) ?? .unknown,
+            currencyCode: currencyCode
         )
     }
 }
@@ -465,4 +511,26 @@ final class SDAnomaly {
             createdAt: createdAt
         )
     }
+}
+
+@Model
+final class SDAccount {
+    @Attribute(.unique) var accountId: String
+    var label: String
+    var currencyCode: String
+    var preferredSpendingCurrency: String?
+    var spendingCurrency: String { preferredSpendingCurrency ?? currencyCode }
+    init(id: String = UUID().uuidString, label: String, currencyCode: String, preferredSpendingCurrency: String? = nil) {
+        self.accountId = id; self.label = label; self.currencyCode = currencyCode
+        self.preferredSpendingCurrency = preferredSpendingCurrency
+    }
+    func toRecord() -> AccountRecord { AccountRecord(accountId: accountId, label: label, currencyCode: currencyCode, preferredSpendingCurrency: preferredSpendingCurrency) }
+}
+
+@Model
+final class SDDataset {
+    @Attribute(.unique) var key: String
+    var datasetId: String
+    var restoredSnapshotId: String?
+    init(datasetId: String = UUID().uuidString) { key = "primary"; self.datasetId = datasetId }
 }

@@ -10,6 +10,8 @@ public struct PipelineInput: Sendable {
     public var observedMonthHint: String?
     public var origin: TransactionOrigin?
     public var now: Date
+    public var account: AccountRecord?
+    public var defaultCurrency: String?
 
     public init(
         sourceDocumentId: String,
@@ -20,7 +22,9 @@ public struct PipelineInput: Sendable {
         existingAssets: [AssetSnapshotRecord] = [],
         observedMonthHint: String? = nil,
         origin: TransactionOrigin? = nil,
-        now: Date = Date()
+        now: Date = Date(),
+        account: AccountRecord? = nil,
+        defaultCurrency: String? = nil
     ) {
         self.sourceDocumentId = sourceDocumentId
         self.fileName = fileName
@@ -31,6 +35,8 @@ public struct PipelineInput: Sendable {
         self.observedMonthHint = observedMonthHint
         self.origin = origin
         self.now = now
+        self.account = account
+        self.defaultCurrency = defaultCurrency
     }
 }
 
@@ -67,7 +73,10 @@ public enum ProcessingPipeline {
         let existingAssetIds = Set(input.existingAssets.map(\.assetSnapshotId))
         let validated = Validator.validate(
             normalized.transactions.filter { !existingIds.contains($0.transactionId) }.map {
-                var row = $0; row.origin = input.origin; return row
+                var row = $0
+                row.origin = input.origin
+                row.assignAccount(input.account, defaultCurrency: input.defaultCurrency)
+                return row
             },
             context: ValidationContext(now: input.now),
             existingTransactions: input.existingTransactions
@@ -101,12 +110,14 @@ public enum ProcessingPipeline {
         now: Date = Date()
     ) -> (summaries: SummaryResult, anomalies: [AnomalyRecord]) {
         let summaries = SummaryGenerator.generate(transactions: transactions, assetSnapshots: assets)
-        let anomalies = AnomalyDetector.generate(
-            transactions: transactions,
-            monthlySummaries: summaries.monthlySummaries,
-            assetTrends: summaries.assetTrends,
+        let anomalies = Set(transactions.compactMap(\.billedCurrencyCode)).sorted().flatMap { code in AnomalyDetector.generate(
+            transactions: transactions.filter { $0.billedCurrencyCode == code && Eligibility.transaction($0).local },
+            monthlySummaries: summaries.monthlySummaries.filter { $0.currencyCode == code },
+            assetTrends: summaries.assetTrends.filter { $0.currencyCode == code },
             context: AnomalyGenerationContext(now: now)
         )
+        .map { row in var copy = row; copy.anomalyId += "_" + code; return copy }
+        }
         return (summaries, anomalies)
     }
 

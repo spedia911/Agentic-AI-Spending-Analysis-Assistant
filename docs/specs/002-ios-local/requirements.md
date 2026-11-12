@@ -27,7 +27,10 @@ As the user, I see monthly/quarterly category totals, cash flow, asset trends, a
 As the user, I can open a source document and see the image, extracted rows, and linked reviews/anomalies.
 
 ### US-009 Retention and export
-As the user, I can configure source-image retention, explicitly delete the stored image while retaining extracted records, and export a CSV/JSON backup of transactions and summaries.
+As the user, I can configure source-image retention, explicitly delete the stored image while retaining extracted records, export a versioned JSON backup (optional originals) or analysis CSV, and restore a backup by replacing the local dataset after preview and confirmation.
+
+### US-012 Accounts, currencies, and privacy
+As the user, I manage stable accounts with ISO currencies, map legacy label groups explicitly, see unmapped/unknown-currency rows excluded from totals with a repair path, and optionally lock the app with Face ID / device passcode (off by default) with an automatic privacy cover when inactive.
 
 ### US-010 Manual activity and correction
 As the user, I can add spending or other activity without a screenshot, search my transactions by merchant/card, and correct fields or category while preserving audit evidence.
@@ -50,3 +53,7 @@ As the user, I can choose Apple Card or Capital One Venture X, enter another car
 2. Paste valid extraction JSON and persist normalized transactions.
 3. Correct a novel merchant category with “remember” and see the next similar merchant auto-categorized.
 4. Dashboard reflects summaries after import and after corrections without any Google API calls.
+5. USD and KRW totals never combine; unknown currencies and unmapped accounts are withheld with visible counts.
+6. Versioned backup round-trips records and evidence; failed restores leave the prior dataset intact; CSV is clearly not a restorable backup.
+7. Asset trends distinguish missing coverage from zero and show previous-observation change when the prior calendar month is absent.
+8. With app lock enabled, cancelling authentication leaves financial content covered and pauses processing.

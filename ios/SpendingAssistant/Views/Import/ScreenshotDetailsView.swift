@@ -5,12 +5,9 @@ import SpendingDomain
 struct ScreenshotDetailsView: View {
     @Environment(ImportCoordinator.self) private var imports
     @Environment(\.dismiss) private var dismiss
-    @Query private var sources: [SDSourceDocument]
-    @Query private var transactions: [SDTransaction]
-    @Query private var assets: [SDAssetSnapshot]
     let request: ScreenshotImportDetails
     @State private var month: String
-    @State private var account: String
+    @State private var accountId: String
     @State private var fallbackDate = Date()
     @State private var useSharedDate = false
     @State private var reusePeriod = false
@@ -22,7 +19,7 @@ struct ScreenshotDetailsView: View {
     init(request: ScreenshotImportDetails) {
         self.request = request
         _month = State(initialValue: request.source.observedMonthHint ?? "")
-        _account = State(initialValue: request.source.cardName ?? "")
+        _accountId = State(initialValue: request.source.importAccountId ?? "")
     }
 
     var body: some View {
@@ -47,15 +44,9 @@ struct ScreenshotDetailsView: View {
                             .onChange(of: reviewDatesIndividually) { _, individually in if individually { useSharedDate = false } }
                     }
                 }
-                if request.needsAccount {
-                    Section("Missing account") {
-                        if !knownAccounts.isEmpty {
-                            Menu("Choose a known account") {
-                                ForEach(knownAccounts, id: \.self) { label in Button(label) { account = label } }
-                            }
-                        }
-                        TextField("Account name", text: $account).accessibilityIdentifier("requiredAccount")
-                    }
+                Section("Account") {
+                    AccountSelector(accountId: $accountId, suggestedName: request.source.cardName ?? "",
+                        suggestedCurrency: CurrencyEvidence.read(request.source.rawText ?? "").code)
                 }
                 if (request.needsYear && imports.hasRemainingDates(in: request))
                     || (request.needsAccount && imports.hasRemainingAccounts(in: request)) {
@@ -81,17 +72,9 @@ struct ScreenshotDetailsView: View {
         }
     }
 
-    private var knownAccounts: [String] {
-        let labels = sources.compactMap(\.cardName) + transactions.map(\.accountLabel) + assets.map(\.accountLabel)
-        var seen: Set<String> = ["unknown account"]
-        return labels.map { PrivacyRedactor.maskAccountLabel($0) }
-            .filter { seen.insert($0.lowercased()).inserted }
-            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-    }
-
     private var canFinish: Bool {
         (!request.needsYear || Normalizer.isValidStatementDateHint(month.trimmingCharacters(in: .whitespacesAndNewlines)))
-            && (!request.needsAccount || PrivacyRedactor.maskAccountLabel(account) != "Unknown account")
+            && (!request.needsAccount || !accountId.isEmpty)
             && (!request.needsDate || reviewDatesIndividually || useSharedDate)
     }
 
@@ -103,8 +86,8 @@ struct ScreenshotDetailsView: View {
     private func finish() {
         saving = true
         Task {
-            let result = await imports.finishDetails(request, account: account, month: month,
-                fallbackDate: request.needsDate && useSharedDate ? dateString(fallbackDate) : nil, reusePeriod: reusePeriod, reuseAccount: reuseAccount)
+            let result = await imports.finishDetails(request, account: request.source.cardName ?? "", month: month,
+                fallbackDate: request.needsDate && useSharedDate ? dateString(fallbackDate) : nil, reusePeriod: reusePeriod, reuseAccount: reuseAccount, accountId: accountId.isEmpty ? nil : accountId)
             saving = false
             if result.status == .imported || result.status == .alreadyImported { dismiss() }
             else { message = result.error ?? "The screenshot still needs details." }

@@ -5,7 +5,6 @@ import SpendingDomain
 struct SourceBatchDetailsView: View {
     @Environment(ImportCoordinator.self) private var imports
     @Query(sort: \SDSourceDocument.createdTime, order: .reverse) private var sources: [SDSourceDocument]
-    @Query private var transactions: [SDTransaction]
     @State private var selected: Set<String> = []
     @State private var changePeriod = false
     @State private var changeAccount = false
@@ -23,8 +22,6 @@ struct SourceBatchDetailsView: View {
             search.isEmpty || ($0.fileName + " " + ($0.cardName ?? "")).localizedCaseInsensitiveContains(search)
         }
         let selection = selected.intersection(eligible.map(\.sourceDocumentId))
-        let accounts = Set(sources.compactMap(\.cardName) + transactions.map(\.accountLabel))
-            .filter { !$0.isEmpty && $0 != "Unknown account" }.sorted()
         List {
             Section("Details to apply") {
                 Toggle("Set year or month", isOn: $changePeriod)
@@ -34,12 +31,7 @@ struct SourceBatchDetailsView: View {
                 }
                 Toggle("Set account", isOn: $changeAccount)
                 if changeAccount {
-                    if !accounts.isEmpty {
-                        Menu("Choose a known account") {
-                            ForEach(accounts, id: \.self) { label in Button(label) { account = label } }
-                        }
-                    }
-                    TextField("Account name", text: $account)
+                    AccountSelector(accountId: $account, allowsUnmapped: false)
                 }
             }
             Section("\(selection.count) sources selected") {
@@ -67,7 +59,7 @@ struct SourceBatchDetailsView: View {
             Button("Apply to \(selection.count) sources") { confirm = true }
                 .disabled(selection.isEmpty || (!changePeriod && !changeAccount)
                     || (changePeriod && !Normalizer.isValidStatementDateHint(period))
-                    || (changeAccount && PrivacyRedactor.maskAccountLabel(account) == "Unknown account") || imports.isBusy)
+                    || (changeAccount && account.isEmpty) || imports.isBusy)
         }
         .navigationTitle("Edit multiple sources")
         .searchable(text: $search, prompt: "Source or account")
@@ -85,7 +77,7 @@ struct SourceBatchDetailsView: View {
         let account = changeAccount ? account : nil
         Task {
             do {
-                let results = try await imports.updateSources(ids: selection, period: period, account: account)
+                let results = try await imports.updateSources(ids: selection, period: period, account: nil, accountId: account)
                 let imported = results.count(where: { $0.status == .imported })
                 let waiting = results.count(where: { $0.status == .needsDetails })
                 let failed = results.count(where: { $0.status == .failed })

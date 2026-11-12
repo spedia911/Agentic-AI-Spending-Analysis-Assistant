@@ -298,7 +298,7 @@ struct DuplicateTransactionCompareView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Transaction dates").font(.caption).foregroundStyle(.secondary)
                         ForEach(Array(related.enumerated()), id: \.element.transactionId) { index, tx in
-                            Text("\(index + 1). \(tx.transactionDate) · \(tx.amount.formatted(.currency(code: "USD")))")
+                            Text("\(index + 1). \(tx.transactionDate) · \(MoneyDisplay.format(tx.amount, currency: tx.billedCurrencyCode))")
                                 .font(.subheadline.weight(.semibold))
                         }
                         if Set(related.map(\.transactionDate)).count == 1 {
@@ -345,7 +345,7 @@ struct DuplicateTransactionCompareView: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(tx.transactionDate).font(.headline)
-                                    Text("\(tx.merchantNormalized) · \(tx.amount.formatted(.currency(code: "USD")))")
+                                    Text("\(tx.merchantNormalized) · \(MoneyDisplay.format(tx.amount, currency: tx.billedCurrencyCode))")
                                     Text("\(tx.accountLabel) · \(tx.transactionTypeRaw.displayTitle)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -501,7 +501,7 @@ private struct DuplicatePairDetailView: View {
                                 Image(systemName: selected.contains(match.id) ? "checkmark.circle.fill" : "circle")
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(match.keep.merchantNormalized).font(.headline)
-                                    Text("\(match.keep.transactionDate) · \(match.keep.amount.formatted(.currency(code: "USD")))")
+                                    Text("\(match.keep.transactionDate) · \(MoneyDisplay.format(match.keep.amount, currency: match.keep.billedCurrencyCode))")
                                     Text("Keep account: \(match.keep.accountLabel)")
                                     Text("Copy account: \(match.remove.accountLabel)")
                                 }

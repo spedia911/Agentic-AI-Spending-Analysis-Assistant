@@ -15,6 +15,27 @@ public struct SummaryResult: Sendable {
 }
 
 public enum SummaryGenerator {
+    public static func generateCashFlowSummaries(_ rows: [TransactionRecord]) -> [CashFlowSummaryRecord] {
+        Dictionary(grouping: rows.filter { Eligibility.transaction($0).local }, by: { $0.billedCurrencyCode! }).sorted { $0.key < $1.key }.flatMap { code, rows in
+            generateCashFlowSummariesOne(rows).map { row in var result = row; result.currencyCode = code; return result }
+        }
+    }
+
+
+    public static func generateQuarterlySummaries(_ rows: [MonthlySummaryRecord]) -> [QuarterlySummaryRecord] {
+        Dictionary(grouping: rows.filter { Eligibility.validCurrency($0.currencyCode) }, by: { $0.currencyCode! }).sorted { $0.key < $1.key }.flatMap { code, rows in
+            generateQuarterlySummariesOne(rows).map { row in var result = row; result.currencyCode = code; return result }
+        }
+    }
+
+
+    public static func generateMonthlySummaries(_ rows: [TransactionRecord]) -> [MonthlySummaryRecord] {
+        Dictionary(grouping: rows.filter { Eligibility.transaction($0).local }, by: { $0.billedCurrencyCode! }).sorted { $0.key < $1.key }.flatMap { code, rows in
+            generateMonthlySummariesOne(rows).map { row in var result = row; result.currencyCode = code; return result }
+        }
+    }
+
+
     public static func generate(transactions: [TransactionRecord], assetSnapshots: [AssetSnapshotRecord]) -> SummaryResult {
         let monthly = generateMonthlySummaries(transactions)
         return SummaryResult(
@@ -25,7 +46,7 @@ public enum SummaryGenerator {
         )
     }
 
-    public static func generateMonthlySummaries(_ transactions: [TransactionRecord]) -> [MonthlySummaryRecord] {
+    private static func generateMonthlySummariesOne(_ transactions: [TransactionRecord]) -> [MonthlySummaryRecord] {
         struct Agg { var total = 0.0; var count = 0; var reviewed = 0; var unresolved = 0 }
         var grouped: [String: Agg] = [:]
         for transaction in transactions.filter(isUsable) {
@@ -64,7 +85,7 @@ public enum SummaryGenerator {
         return rows.sorted { ($0.month + $0.category) < ($1.month + $1.category) }
     }
 
-    public static func generateQuarterlySummaries(_ monthly: [MonthlySummaryRecord]) -> [QuarterlySummaryRecord] {
+    private static func generateQuarterlySummariesOne(_ monthly: [MonthlySummaryRecord]) -> [QuarterlySummaryRecord] {
         struct Agg { var total = 0.0; var count = 0; var partial = false }
         var grouped: [String: Agg] = [:]
         for row in monthly {
@@ -98,7 +119,7 @@ public enum SummaryGenerator {
         return rows.sorted { ($0.quarter + $0.category) < ($1.quarter + $1.category) }
     }
 
-    public static func generateCashFlowSummaries(_ transactions: [TransactionRecord]) -> [CashFlowSummaryRecord] {
+    private static func generateCashFlowSummariesOne(_ transactions: [TransactionRecord]) -> [CashFlowSummaryRecord] {
         struct Agg {
             var spending = 0.0; var income = 0.0; var refund = 0.0; var transfer = 0.0
             var payment = 0.0; var fee = 0.0; var count = 0; var unresolved = 0
@@ -143,46 +164,27 @@ public enum SummaryGenerator {
     }
 
     public static func generateAssetTrends(_ snapshots: [AssetSnapshotRecord], transactions: [TransactionRecord]) -> [AssetTrendRecord] {
-        var latest: [String: AssetSnapshotRecord] = [:]
-        for snapshot in snapshots {
-            guard snapshot.observedMonth != "unknown", !snapshot.observedMonth.isEmpty else { continue }
-            let key = snapshot.accountLabel + "|" + snapshot.observedMonth
-            if let existing = latest[key] {
-                if snapshot.observedDate >= existing.observedDate { latest[key] = snapshot }
-            } else {
-                latest[key] = snapshot
+        let eligible = snapshots.filter { Eligibility.asset($0, peers: snapshots).local }
+        let groups = Dictionary(grouping: eligible) { [$0.accountId!, $0.balanceType.rawValue, $0.currencyCode!].joined(separator: "|") }
+        return groups.keys.sorted().flatMap { key -> [AssetTrendRecord] in
+            let months = Dictionary(grouping: groups[key]!, by: \.observedMonth)
+            let ordered = months.keys.sorted().compactMap { month in
+                months[month]?.sorted { ($0.observedDate, $0.createdAt, $0.id) < ($1.observedDate, $1.createdAt, $1.id) }.last
             }
-        }
-
-        var monthlySpending: [String: Double] = [:]
-        for transaction in transactions.filter(isUsable) {
-            monthlySpending[transaction.observedMonth, default: 0] += SpendingMath.spendingAmount(transaction)
-        }
-
-        let ordered = latest.values.sorted { ($0.accountLabel + $0.observedMonth) < ($1.accountLabel + $1.observedMonth) }
-        var priorByAccount: [String: AssetSnapshotRecord] = [:]
-        return ordered.map { snapshot in
-            let prior = priorByAccount[snapshot.accountLabel]
-            priorByAccount[snapshot.accountLabel] = snapshot
-            let monthlyChange = prior.map { round2(snapshot.balance - $0.balance) } ?? 0
-            let spending = round2(monthlySpending[snapshot.observedMonth] ?? 0)
-            let flag: MaintainabilityFlag
-            if prior == nil {
-                flag = .unknown
-            } else if spending > 0 && monthlyChange < 0 {
-                flag = spending > abs(monthlyChange) * 2 ? .concern : .watch
-            } else {
-                flag = .ok
+            return ordered.enumerated().map { index, row in
+                let prior = index > 0 ? ordered[index - 1] : nil
+                let truePrior = prior.flatMap { $0.observedMonth == previousMonth(row.observedMonth) ? $0 : nil }
+                let activity = transactions.filter { Eligibility.transaction($0).local && $0.accountId == row.accountId && $0.billedCurrencyCode == row.currencyCode && $0.observedMonth == row.observedMonth }
+                let spending = activity.isEmpty ? nil : round2(activity.reduce(0) { $0 + SpendingMath.spendingAmount($1) })
+                var result = AssetTrendRecord(month: row.observedMonth, accountLabel: row.accountLabel,
+                    endingBalance: row.balance, priorMonthBalance: truePrior?.balance,
+                    monthlyChange: truePrior.map { round2(row.balance - $0.balance) },
+                    relatedSpendingTotal: spending, maintainabilityFlag: .unknown, currencyCode: row.currencyCode)
+                result.accountId = row.accountId
+                result.previousObservationDate = prior?.observedDate
+                result.previousObservationChange = prior.map { round2(row.balance - $0.balance) }
+                return result
             }
-            return AssetTrendRecord(
-                month: snapshot.observedMonth,
-                accountLabel: snapshot.accountLabel,
-                endingBalance: snapshot.balance,
-                priorMonthBalance: prior?.balance,
-                monthlyChange: monthlyChange,
-                relatedSpendingTotal: spending,
-                maintainabilityFlag: flag
-            )
         }
     }
 

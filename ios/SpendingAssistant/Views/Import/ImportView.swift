@@ -14,6 +14,7 @@ struct ImportView: View {
     @State private var showManualAsset = false
     @State private var showJSON = false
     @State private var showSettings = false
+    @AppStorage("importAccountId") private var accountId = ""
     @AppStorage("importCardName") private var cardName = ""
     @AppStorage("importScreenshotLayout") private var layout: ScreenshotLayout = .automatic
     @AppStorage("importStatementMonth") private var statementMonth = ""
@@ -23,6 +24,7 @@ struct ImportView: View {
             Form {
                 if !showJSON {
                     Section("Screenshots") {
+                        AccountSelector(accountId: $accountId, suggestedName: cardName)
                         PhotosPicker(selection: $pickerItems, maxSelectionCount: 8, matching: .images) {
                             Label("Choose from Photos", systemImage: "photo")
                         }
@@ -31,10 +33,8 @@ struct ImportView: View {
                             Task { await importPhotos(items) }
                         }
                         Button("Choose from Files (images or PDF)") { showImporter = true }
-                        if !cardName.isEmpty || layout != .automatic {
-                            Text([cardName, layout.title].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption)
-                        }
-                        Text("Use Import settings (•••) to choose the account or bank activity layout. OCR runs on your device.")
+                        if layout != .automatic { Text(layout.title).font(.caption) }
+                        Text("Choose the account for this batch. Change the layout under Import settings.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }.disabled(imports.isBusy)
 
@@ -111,16 +111,16 @@ struct ImportView: View {
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
                     Form {
-                        Section("Account and screenshot style") {
-                            CardOptionsView(cardName: $cardName, layout: $layout, month: $statementMonth)
+                        Section("Screenshot style") {
+                            CardOptionsView(accountId: $accountId, showsAccount: false, cardName: $cardName, layout: $layout, month: $statementMonth)
                         }
                     }
                     .navigationTitle("Import settings")
                     .toolbar { Button("Done") { showSettings = false } }
                 }
             }
-            .sheet(isPresented: $showManual) { ManualTransactionView(initialCard: cardName) }
-            .sheet(isPresented: $showManualAsset) { ManualAssetView() }
+            .sheet(isPresented: $showManual) { ManualTransactionView(initialCard: cardName, initialAccountId: accountId) }
+            .sheet(isPresented: $showManualAsset) { ManualAssetView(initialAccountId: accountId) }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.image, .pdf], allowsMultipleSelection: true) { result in
                 switch result {
                 case let .success(urls):

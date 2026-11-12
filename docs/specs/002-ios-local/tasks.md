@@ -37,9 +37,22 @@
 
 1. Open `ios/SpendingAssistant.xcodeproj` (generate via `ios/scripts/generate-xcodeproj.sh` if needed).
 2. Run on simulator or device (iOS 18+).
-3. Use Import → Input type → Paste AI JSON with the synthetic sample from Resources.
-4. Open Review, resolve one category, confirm Home insights update.
-5. Settings → Export backup.
+3. Settings → Accounts: create synthetic USD and KRW accounts; map or enter rows with account/currency selection.
+4. Use Import → Input type → Paste AI JSON with the synthetic sample from Resources (or manual entry).
+5. Open Review, resolve one category / map unmapped rows, confirm Home shows separate currency totals and excluded-count repair.
+6. Home → Export: share a desktop snapshot and CSV. Save a backup under Settings → Data safety, change or delete a record, and restore to verify recovery.
+7. Optional: enable Face ID / passcode lock and confirm the privacy cover.
+
+## Audit remediation (local-first)
+
+- [x] Persistent account IDs + ISO currencies; explicit legacy mapping; eligibility for local vs desktop export
+- [x] Spending classification contract (gross / refunds / net / income / transfers / card settlements)
+- [x] Versioned snapshot export with hashes; CSV distinguished from restorable backup
+- [x] Portable backup with optional originals; validate-then-replace restore; recovery journal
+- [x] Previous-observation asset trends; carried-forward labeling; historical extrapolation disclaimer
+- [x] Optional biometric lock + inactive privacy cover; processing paused until unlocked
+- [x] Private-device validation checklist + accuracy-report harness (`ios/docs/VALIDATION_CHECKLIST.md`)
+- [ ] Physical-device / TestFlight gate (Share handoff, lock, retention, Foundation Models availability)
 
 ## Further work (post-MVP backlog)
 
@@ -49,7 +62,7 @@
 - [x] Batch anomaly / merchant correction UX (same-import date compare, overview category confirm)
 - [x] Color-coded spending-by-category chart
 - [x] Asset balances: expanded account types, manual entry, one-month forward-fill, balances JSON prompt
-- [ ] Face ID lock / privacy screen before showing balances
+- [x] Face ID lock / privacy screen before showing balances (optional; off by default)
 - [ ] Onboarding: copyable AI prompt + first-import walkthrough
 
 ### Ingestion
@@ -61,7 +74,9 @@
 - [x] Preserve authoritative app/extension Info.plists through XcodeGen and verify built settings
 - [x] Document regenerating `SpendingAssistant.xcodeproj`; fail clearly when XcodeGen is missing
 - [x] Ignore `ios/**/.build/` (already covered)
-- [ ] CSV export alongside JSON backup
+- [x] CSV export alongside JSON backup (analysis-only; not restorable)
+- [x] Versioned portable backup + transactional restore with recovery journal
+- [x] Stable account UUIDs, ISO currencies, eligibility gating, no FX conversion
 - [ ] One-time import from v1 Sheets/CSV export (optional migration)
 
 ### Quality

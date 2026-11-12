@@ -49,6 +49,8 @@ struct SourceDetailView: View {
     @State private var deleteImage = false
     @State private var showManual = false
     @State private var cardName = ""
+    @State private var accountId = ""
+    @State private var applyAccountToRows = false
     @State private var layout: ScreenshotLayout = .automatic
     @State private var month = ""
 
@@ -98,13 +100,22 @@ struct SourceDetailView: View {
                 }
             }
             Section("Account and date details") {
-                    if isPDF { TextField("Account name", text: $cardName) }
-                    else { CardOptionsView(cardName: $cardName, layout: $layout, month: $month) }
+                    if isPDF {
+                        AccountSelector(accountId: $accountId, suggestedName: cardName,
+                            suggestedCurrency: CurrencyEvidence.read(source.rawText ?? "").code)
+                    } else {
+                        CardOptionsView(accountId: $accountId, suggestedCurrency: CurrencyEvidence.read(source.rawText ?? "").code,
+                            cardName: $cardName, layout: $layout, month: $month)
+                    }
+                    if !related.isEmpty || !relatedAssets.isEmpty {
+                        Toggle("Apply account to existing records from this source", isOn: $applyAccountToRows)
+                    }
                     Button("Save source details") {
                         do {
-                            try imports.service.updateSourceOptions(id: source.sourceDocumentId, cardName: cardName, layout: layout, month: month)
+                            try imports.service.updateSourceOptions(id: source.sourceDocumentId, cardName: cardName, layout: layout, month: month,
+                                accountId: accountId, applyAccountToRows: applyAccountToRows)
                             message = related.isEmpty ? "Details saved. Finish or retry import to use them."
-                                : "Details saved. Account and matching yearless dates were updated where applicable."
+                                : applyAccountToRows ? "Details saved for this source and its existing records." : "Source details saved."
                         } catch { message = PrivacyRedactor.safeErrorDetail(error) }
                     }.disabled(imports.isBusy)
             }
@@ -143,7 +154,7 @@ struct SourceDetailView: View {
                     let target = RecordDestination.transaction(tx.transactionId)
                     NavigationLink { TransactionDetailView(transactionId: tx.transactionId) } label: {
                         VStack(alignment: .leading) {
-                            Text("\(tx.merchantNormalized) · \(tx.amount.formatted(.currency(code: "USD")))")
+                            Text("\(tx.merchantNormalized) · \(MoneyDisplay.format(tx.amount, currency: tx.billedCurrencyCode))")
                             Text("\(tx.transactionDate) · \(tx.categoryRaw.displayTitle)").font(.caption)
                         }
                     }.recordActions(target.label, detail: target.deletionDetail, edit: { editing = target }) {
@@ -156,7 +167,7 @@ struct SourceDetailView: View {
                     let target = RecordDestination.asset(asset.assetSnapshotId)
                     NavigationLink { AssetEditor(asset: asset.toRecord()) } label: {
                         VStack(alignment: .leading) {
-                            Text("\(asset.accountLabel) · \(asset.balance.formatted(.currency(code: "USD")))")
+                            Text("\(asset.accountLabel) · \(MoneyDisplay.format(asset.balance, currency: asset.currencyCode))")
                             Text(asset.observedDate).font(.caption)
                         }
                     }.recordActions(target.label, detail: target.deletionDetail, edit: { editing = target }) {
@@ -186,10 +197,11 @@ struct SourceDetailView: View {
         }
         .onAppear {
             cardName = source.cardName ?? ""
+            accountId = source.importAccountId ?? ""
             layout = ScreenshotLayout(rawValue: source.screenshotLayout ?? "") ?? .automatic
             month = source.observedMonthHint ?? HeuristicScreenshotParser.statementMonth(source.rawText ?? "") ?? ""
         }
-        .sheet(isPresented: $showManual) { ManualTransactionView(sourceId: source.sourceDocumentId, initialCard: source.cardName ?? "") }
+        .sheet(isPresented: $showManual) { ManualTransactionView(sourceId: source.sourceDocumentId, initialCard: source.cardName ?? "", initialAccountId: source.importAccountId ?? "") }
         .alert("Delete entire source?", isPresented: $deleteRecord) {
             Button("Delete source", role: .destructive) {
                 do { try imports.service.deleteSource(id: source.sourceDocumentId); dismiss() }

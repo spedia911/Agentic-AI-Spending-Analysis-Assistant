@@ -40,16 +40,28 @@ final class ImportCoordinator {
         return "\(imported) imported · \(duplicate) already imported · \(failed) failed" + (waiting > 0 ? " · \(waiting) need details" : "")
     }
 
+    /// Serializes imports, edits, and snapshot export/restore so backups stay consistent with the store.
+    func exclusive<T>(_ work: () throws -> T) async throws -> T {
+        if isBusy { await withCheckedContinuation { waiters.append($0) } } else { isBusy = true }
+        defer {
+            if waiters.isEmpty { isBusy = false } else { waiters.removeFirst().resume() }
+        }
+        guard service.processingAllowed else { throw BackupError.invalid("Unlock the app to continue.") }
+        return try work()
+    }
+
     @discardableResult
     func run(_ jobs: [ImportJob]) async -> [ImportOutcome] {
-        guard !jobs.isEmpty else { return [] }
+        guard service.processingAllowed, !jobs.isEmpty else { return [] }
         if isBusy { await withCheckedContinuation { waiters.append($0) } } else { isBusy = true }
         completed = 0; total = jobs.count; outcomes = []
         let batchID = UUID()
+        let accountId = UserDefaults.standard.string(forKey: "importAccountId")
         defer {
             if waiters.isEmpty { isBusy = false } else { waiters.removeFirst().resume() }
         }
         for job in jobs {
+            guard service.processingAllowed else { break }
             let result: ImportOutcome
             do {
                 switch try await job.load() {
@@ -57,7 +69,7 @@ final class ImportCoordinator {
                     result = await service.importImage(data: data, fileName: job.name, mimeType: mime, sourceType: type,
                         options: ScreenshotParseOptions(cardName: UserDefaults.standard.string(forKey: "importCardName"),
                             layout: ScreenshotLayout(rawValue: UserDefaults.standard.string(forKey: "importScreenshotLayout") ?? "") ?? .automatic,
-                            observedMonthHint: UserDefaults.standard.string(forKey: "importStatementMonth").flatMap { $0.isEmpty ? nil : $0 }), requestDetails: true)
+                            observedMonthHint: UserDefaults.standard.string(forKey: "importStatementMonth").flatMap { $0.isEmpty ? nil : $0 }), requestDetails: true, accountId: accountId)
                 case let .json(text, type):
                     result = await service.importAIJSON(text: text, fileName: job.name, sourceType: type)
                 case let .retry(id): result = await service.retry(sourceId: id, requestDetails: true)
@@ -95,10 +107,10 @@ final class ImportCoordinator {
         return pendingDetails.contains { $0.batchID == batch && $0.needsAccount }
     }
 
-    func updateSources(ids: Set<String>, period: String?, account: String?) async throws -> [ImportOutcome] {
+    func updateSources(ids: Set<String>, period: String?, account: String?, accountId: String? = nil) async throws -> [ImportOutcome] {
         if isBusy { await withCheckedContinuation { waiters.append($0) } } else { isBusy = true }
         defer { if waiters.isEmpty { isBusy = false } else { waiters.removeFirst().resume() } }
-        let results = try await service.applySourceBatch(ids: ids, period: period, account: account)
+        let results = try await service.applySourceBatch(ids: ids, period: period, account: account, accountId: accountId)
         for result in results {
             guard let id = result.source?.sourceDocumentId else { continue }
             if let index = pendingDetails.firstIndex(where: { $0.id == id }) {
@@ -113,20 +125,21 @@ final class ImportCoordinator {
     }
 
     func finishDetails(_ request: ScreenshotImportDetails, account: String, month: String, fallbackDate: String?,
-                       reusePeriod: Bool = false, reuseAccount: Bool = false) async -> ImportOutcome {
+                       reusePeriod: Bool = false, reuseAccount: Bool = false, accountId: String? = nil) async -> ImportOutcome {
         if isBusy { await withCheckedContinuation { waiters.append($0) } } else { isBusy = true }
         defer { if waiters.isEmpty { isBusy = false } else { waiters.removeFirst().resume() } }
-        let result = await service.completeScreenshotDetails(id: request.id, account: account, month: month, fallbackDate: fallbackDate)
+        let result = await service.completeScreenshotDetails(id: request.id, account: account, month: month, fallbackDate: fallbackDate, accountId: accountId)
         if result.status == .imported || result.status == .alreadyImported {
             replaceOutcome(result, sourceId: request.id)
             let sharedPeriod = reusePeriod && Normalizer.isValidStatementDateHint(month) ? month : nil
             let sharedAccount = reuseAccount && PrivacyRedactor.maskAccountLabel(account) != "Unknown account" ? account : nil
-            if let batch = request.batchID, sharedPeriod != nil || sharedAccount != nil {
+            let sharedAccountId = reuseAccount ? accountId : nil
+            if let batch = request.batchID, sharedPeriod != nil || sharedAccount != nil || sharedAccountId != nil {
                 let remaining = pendingDetails.filter {
-                    $0.batchID == batch && (($0.needsYear && sharedPeriod != nil) || ($0.needsAccount && sharedAccount != nil))
+                    $0.batchID == batch && (($0.needsYear && sharedPeriod != nil) || ($0.needsAccount && (sharedAccount != nil || sharedAccountId != nil)))
                 }
                 for candidate in remaining {
-                    var updated = await service.applySharedScreenshotDetails(period: sharedPeriod, account: sharedAccount, to: candidate)
+                    var updated = await service.applySharedScreenshotDetails(period: sharedPeriod, account: sharedAccount, accountId: sharedAccountId, to: candidate)
                     if let index = pendingDetails.firstIndex(where: { $0.id == candidate.id }) {
                         if var details = updated.details {
                             details.batchID = batch
@@ -150,7 +163,7 @@ final class ImportCoordinator {
     }
 
     func drainShareInbox() async {
-        guard !draining else { return }
+        guard service.processingAllowed, !draining else { return }
         draining = true; defer { draining = false }
         do {
             guard let inbox else { return }
@@ -179,7 +192,7 @@ final class ImportCoordinator {
             let type = UTType(filenameExtension: item.url.pathExtension)
             return .image(try Data(contentsOf: item.url), mimeType: type?.preferredMIMEType ?? "image/jpeg", sourceType: .share)
         }])
-        guard let result = results.first else { return [] }
+        guard service.processingAllowed, let result = results.first else { return results }
         do {
             if result.status == .failed {
                 try ShareInboxService.markFailed(item, message: result.error ?? "Import failed.")

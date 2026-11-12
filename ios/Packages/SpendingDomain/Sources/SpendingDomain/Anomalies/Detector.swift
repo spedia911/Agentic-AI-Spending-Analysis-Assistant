@@ -21,7 +21,6 @@ public enum AnomalyDetector {
     ) -> [AnomalyRecord] {
         detectDuplicateChargeAnomalies(transactions, now: context.now, lookbackDays: context.duplicateLookbackDays)
             + detectSpendingSpikeAnomalies(monthlySummaries, now: context.now, ratio: context.spendingSpikeRatio)
-            + detectBalanceDropAnomalies(assetTrends, now: context.now)
             + detectMissingMonthAnomalies(monthlySummaries, now: context.now)
     }
 
@@ -33,7 +32,8 @@ public enum AnomalyDetector {
                 let left = usable[i]
                 let right = usable[j]
                 let distance = dateDistanceDays(left.transactionDate, right.transactionDate)
-                if merchantKey(left.merchantNormalized) == merchantKey(right.merchantNormalized),
+                if left.accountId == right.accountId, left.billedCurrencyCode == right.billedCurrencyCode,
+                   merchantKey(left.merchantNormalized) == merchantKey(right.merchantNormalized),
                    abs(left.amount - right.amount) < 0.01,
                    let distance,
                    distance <= Double(lookbackDays) {
@@ -77,22 +77,6 @@ public enum AnomalyDetector {
             }
         }
         return anomalies
-    }
-
-    public static func detectBalanceDropAnomalies(_ assetTrends: [AssetTrendRecord], now: Date) -> [AnomalyRecord] {
-        assetTrends
-            .filter { $0.maintainabilityFlag == .watch || $0.maintainabilityFlag == .concern }
-            .map {
-                makeAnomaly(
-                    type: .balanceDrop,
-                    severity: $0.maintainabilityFlag == .concern ? .high : .medium,
-                    month: $0.month,
-                    related: ["\($0.month):\($0.accountLabel)"],
-                    summary: "\($0.accountLabel) balance changed by \(String(format: "%.2f", $0.monthlyChange)) while spending was \(String(format: "%.2f", $0.relatedSpendingTotal)).",
-                    action: "Check whether this balance drop is expected and whether spending should be adjusted.",
-                    now: now
-                )
-            }
     }
 
     public static func detectMissingMonthAnomalies(_ monthlySummaries: [MonthlySummaryRecord], now: Date) -> [AnomalyRecord] {

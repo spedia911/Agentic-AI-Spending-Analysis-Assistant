@@ -6,6 +6,12 @@ import SpendingDomain
 final class LocalStore {
     let modelContext: ModelContext
 
+    var readDefaultCurrency: () -> String? = { UserDefaults.standard.string(forKey: "defaultCurrencyCode") }
+    var defaultCurrency: String? {
+        let value = readDefaultCurrency()
+        return Eligibility.validCurrency(value) ? value : nil
+    }
+
     var beforeSave: (() throws -> Void)?
 
     init(modelContext: ModelContext) {
@@ -24,6 +30,10 @@ final class LocalStore {
     }
 
     func upsert(transaction: TransactionRecord) throws {
+        var transaction = transaction
+        if let account = try account(id: transaction.accountId), account.label != transaction.accountLabel {
+            transaction.accountId = nil; transaction.currencyCode = nil
+        }
         let id = transaction.transactionId
         let descriptor = FetchDescriptor<SDTransaction>(predicate: #Predicate { $0.transactionId == id })
         if let existing = try modelContext.fetch(descriptor).first {
@@ -34,6 +44,10 @@ final class LocalStore {
     }
 
     func upsert(asset: AssetSnapshotRecord) throws {
+        var asset = asset
+        if let account = try account(id: asset.accountId), account.label != asset.accountLabel {
+            asset.accountId = nil; asset.currencyCode = nil
+        }
         let id = asset.assetSnapshotId
         let descriptor = FetchDescriptor<SDAssetSnapshot>(predicate: #Predicate { $0.assetSnapshotId == id })
         if let existing = try modelContext.fetch(descriptor).first {
@@ -147,7 +161,9 @@ final class LocalStore {
 
     func rebuildDerived() throws {
         let transactions = try allTransactions()
-        let assets = try allAssets()
+        let allBalances = try allAssets()
+        let reviews = try allReviews()
+        let assets = allBalances.filter { Eligibility.asset($0, reviews: reviews, peers: allBalances).local }
         let rebuilt = ProcessingPipeline.rebuildSummaries(transactions: transactions, assets: assets)
         let decisions = try allCorrections().filter { $0.targetType == .anomaly && $0.fieldName == "anomaly_status" }
         var statuses: [String: AnomalyStatus] = [:]
@@ -270,12 +286,15 @@ extension LocalStore {
     func saveReviewedAsset(_ asset: AssetSnapshotRecord) throws {
         try commit(rebuild: true) {
             guard let before = try allAssets().first(where: { $0.assetSnapshotId == asset.assetSnapshotId }) else { throw ReviewError.missingTarget }
+            guard Eligibility.asset(asset, peers: try allAssets()).local,
+                  let account = try account(id: asset.accountId), account.currencyCode == asset.currencyCode else { throw ReviewError.invalidFields }
             try upsert(asset: asset)
             let edits = [
                 ("observed_date", before.observedDate, asset.observedDate),
                 ("account_label", before.accountLabel, asset.accountLabel),
                 ("balance", String(before.balance), String(asset.balance)),
-                ("balance_type", before.balanceType.rawValue, asset.balanceType.rawValue)
+                ("balance_type", before.balanceType.rawValue, asset.balanceType.rawValue),
+                ("confirmed_balance_currency", before.confirmedCurrencyCode ?? "", asset.confirmedCurrencyCode ?? "")
             ]
             for (field, old, new) in edits where old != new {
                 try insert(correction: CorrectionRecord(correctionId: "corr_" + UUID().uuidString, targetType: .assetSnapshot,

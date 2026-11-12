@@ -17,7 +17,7 @@ Monthly personal spending review from credit-card and bank screenshots is slow a
 | Extraction AI | Cloud Gemini / OpenAI vision | Apple Vision OCR + heuristics; optional Apple Foundation Models; Share/paste from ChatGPT/Claude/Grok |
 | Categorization AI | Rules + optional cloud classifier | Rules + merchant memory + optional on-device Foundation Models; paste/manual fallback |
 | Durable store | Google Sheets tabs | SwiftData on device |
-| Auth / ACL | `SINGLE_USER_EMAIL` query gate | Device-local (optional Face ID later) |
+| Auth / ACL | `SINGLE_USER_EMAIL` query gate | Device-local; optional Face ID / passcode lock (off by default) |
 
 ## What stays
 
@@ -43,3 +43,9 @@ Monthly personal spending review from credit-card and bank screenshots is slow a
 - Scanned, locked, or unsupported PDF layouts
 - Multi-user sync / iCloud sharing
 - Direct private SDK hooks into ChatGPT / Claude / Grok apps
+- Desktop importer / automatic sync / scheduling / holdings / market feeds (document integration contracts only; not end-to-end in iOS)
+- FX conversion across currencies (totals stay partitioned by ISO currency)
+
+## Audit remediation notes
+
+Accounts use stable UUIDs with editable labels; unmapped or unknown-currency rows are excluded from aggregates until explicitly mapped. Exports use a versioned full-snapshot envelope (dataset/snapshot IDs, completeness, integrity hashes). Restore replaces the local dataset after preview and confirmation; independently edited copies do not synchronize. Downstream consumers must validate an entire snapshot before atomically replacing records for that dataset only.

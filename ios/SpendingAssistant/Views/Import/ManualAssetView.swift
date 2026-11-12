@@ -2,12 +2,13 @@ import SwiftUI
 import SpendingDomain
 
 struct ManualAssetView: View {
+    var initialAccountId = ""
     @Environment(ImportCoordinator.self) private var imports
     @Environment(\.dismiss) private var dismiss
     @State private var date = Date()
-    @State private var account = ""
     @State private var amount = ""
     @State private var balanceType: BalanceType = .checking
+    @State private var accountId = ""
     @State private var error: String?
 
     var body: some View {
@@ -15,9 +16,8 @@ struct ManualAssetView: View {
             Form {
                 Section("Account balance") {
                     DatePicker("Observed date", selection: $date, displayedComponents: .date)
-                    TextField("Account label", text: $account)
-                        .accessibilityIdentifier("manualAssetAccount")
-                    TextField("Balance (USD)", text: $amount)
+                    AccountSelector(accountId: $accountId, forBalance: true)
+                    TextField("Balance (selected currency)", text: $amount)
                         .keyboardType(.numbersAndPunctuation)
                         .accessibilityIdentifier("manualAssetBalance")
                     Picker("Account type", selection: $balanceType) {
@@ -31,17 +31,18 @@ struct ManualAssetView: View {
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 Button("Save balance") { save() }
-                    .disabled(imports.isBusy)
+                    .disabled(imports.isBusy || accountId.isEmpty)
                     .accessibilityIdentifier("saveManualAsset")
             }
             .navigationTitle("Add balance")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }.disabled(imports.isBusy)
+                    Button("Save") { save() }.disabled(imports.isBusy || accountId.isEmpty)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            .task { accountId = initialAccountId }
         }
     }
 
@@ -56,10 +57,10 @@ struct ManualAssetView: View {
         formatter.dateFormat = "yyyy-MM-dd"
         do {
             try imports.service.addManualAsset(
-                accountLabel: account,
+                accountLabel: "",
                 observedDate: formatter.string(from: date),
                 balance: value,
-                balanceType: balanceType
+                balanceType: balanceType, accountId: accountId
             )
             dismiss()
         } catch {
