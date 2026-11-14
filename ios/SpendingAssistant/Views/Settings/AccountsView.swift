@@ -75,6 +75,21 @@ struct CurrencySelector: View {
     private let codes = Locale.commonISOCurrencyCodes.sorted()
     private func name(_ code: String) -> String { Locale.current.localizedString(forCurrencyCode: code) ?? code }
 
+    private var recentCurrencies: [String] {
+        recentCodes.split(separator: ",").map { String($0) }
+    }
+
+    private var prominentCurrencies: [String] {
+        ["USD", "KRW"] + recentCurrencies.filter { $0 != "USD" && $0 != "KRW" }
+    }
+
+    private var matchingCurrencies: [String] {
+        guard !search.isEmpty else { return codes }
+        return codes.filter { code in
+            code.localizedCaseInsensitiveContains(search) || name(code).localizedCaseInsensitiveContains(search)
+        }
+    }
+
     var body: some View {
         Button {
             search = ""
@@ -84,29 +99,32 @@ struct CurrencySelector: View {
         }
         .accessibilityIdentifier("currencySelector")
         .sheet(isPresented: $choosing) {
-            NavigationStack {
-                List {
-                    if search.isEmpty {
-                        Section("Common and recent") {
-                            let prominent = ["USD", "KRW"] + recentCodes.split(separator: ",").map(String.init).filter { $0 != "USD" && $0 != "KRW" }
-                            ForEach(prominent, id: \.self) { choice($0) }
-                        }
-                    }
-                    Section("Currencies") {
-                        ForEach(codes.filter { search.isEmpty || $0.localizedCaseInsensitiveContains(search) || name($0).localizedCaseInsensitiveContains(search) }, id: \.self) { choice($0) }
+            currencySheet
+        }
+    }
+
+    private var currencySheet: some View {
+        NavigationStack {
+            List {
+                if search.isEmpty {
+                    Section("Common and recent") {
+                        ForEach(prominentCurrencies, id: \.self) { choice($0) }
                     }
                 }
-                .searchable(text: $search, prompt: "Currency code or name")
-                .navigationTitle("Choose currency")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { choosing = false } } }
+                Section("Currencies") {
+                    ForEach(matchingCurrencies, id: \.self) { choice($0) }
+                }
             }
+            .searchable(text: $search, prompt: "Currency code or name")
+            .navigationTitle("Choose currency")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { choosing = false } } }
         }
     }
 
     private func choice(_ code: String) -> some View {
         Button("\(code) · \(name(code))") {
             selection = code
-            let previous = recentCodes.split(separator: ",").map(String.init).filter { $0 != code }
+            let previous = recentCurrencies.filter { $0 != code }
             recentCodes = ([code] + previous).prefix(5).joined(separator: ",")
             choosing = false
         }
